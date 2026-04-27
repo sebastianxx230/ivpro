@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tareo-converter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root, [data-theme="light"] {
+      --bg:#f7f6f2; --surface:#fbfbf9; --surface-2:#f1efe8; --text:#24231f; --muted:#6d6c68;
+      --primary:#01696f; --primary-2:#0c4e54; --accent:#7a39bb; --line:#d9d6cf; --good:#437a22;
+      --warn:#d19900; --danger:#a13544; --shadow:0 10px 30px rgba(20,20,20,.08); --radius:16px;
+    }
+    [data-theme="dark"] {
+      --bg:#161514; --surface:#1d1c1b; --surface-2:#262523; --text:#efede8; --muted:#a7a39a;
+      --primary:#4f98a3; --primary-2:#78b0b8; --accent:#b284e7; --line:#363432; --good:#7fb85b;
+      --warn:#edb336; --danger:#dd6974; --shadow:0 10px 30px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box} html,body{margin:0;padding:0}
+    body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.45}
+    .app{max-width:1380px;margin:0 auto;padding:24px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:24px}
+    .brand{display:flex;gap:14px;align-items:center}
+    .logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--accent));display:grid;place-items:center;box-shadow:var(--shadow)}
+    .logo svg{width:26px;height:26px;color:#fff}
+    h1{font-size:clamp(1.7rem,1.2rem + 1.6vw,2.8rem);line-height:1.05;margin:0}
+    .sub{color:var(--muted);margin-top:4px;font-size:.98rem}
+    .theme-btn{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:999px;padding:10px 14px;cursor:pointer}
+    .grid{display:grid;grid-template-columns:360px 1fr;gap:20px}
+    .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .panel-inner{padding:18px}
+    .stack{display:grid;gap:14px}
+    .dropzone{border:2px dashed var(--line);border-radius:18px;padding:22px;background:var(--surface-2);text-align:center}
+    .dropzone.drag{border-color:var(--primary);background:color-mix(in srgb, var(--primary) 8%, var(--surface-2))}
+    .dropzone h3{margin:0 0 8px 0;font-size:1.02rem}
+    .small{font-size:.9rem;color:var(--muted)}
+    .btns{display:flex;flex-wrap:wrap;gap:10px}
+    button,.button{border:none;border-radius:12px;padding:11px 14px;font-weight:700;cursor:pointer}
+    .primary{background:var(--primary);color:#fff}
+    .secondary{background:var(--surface-2);color:var(--text);border:1px solid var(--line)}
+    .ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+    .fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    label{font-size:.84rem;font-weight:700;color:var(--muted);display:grid;gap:6px}
+    input,select{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+    .stat{padding:16px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+    .stat b{display:block;font-size:1.45rem;margin-top:6px}
+    .content{display:grid;gap:20px}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;padding:14px 14px 0 14px}
+    .tab{padding:10px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);font-weight:700}
+    .tab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .table-wrap{overflow:auto;max-height:62vh;border-top:1px solid var(--line)}
+    table{width:100%;border-collapse:collapse;font-size:.88rem}
+    th,td{padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left}
+    thead th{position:sticky;top:0;background:var(--surface);z-index:1}
+    .badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 10px;font-size:.78rem;font-weight:700;background:var(--surface-2);border:1px solid var(--line)}
+    .ok{color:var(--good)} .warn{color:var(--warn)}
+    .footer-note{padding:12px 18px;color:var(--muted);font-size:.86rem;border-top:1px solid var(--line)}
+    .hidden{display:none}
+    .mono{font-variant-numeric:tabular-nums}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:color-mix(in srgb, var(--primary) 10%, transparent);color:var(--primary);font-weight:700;font-size:.78rem}
+    @media (max-width:1000px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.table-wrap{max-height:none}}
+    @media (max-width:640px){.fields,.stats{grid-template-columns:1fr}.app{padding:14px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-label="Logo">
+            <path d="M5 18V6l7-3 7 3v12l-7 3-7-3Z"></path>
+            <path d="M12 3v18"></path>
+            <path d="M5 6l7 4 7-4"></path>
+          </svg>
+        </div>
+        <div>
+          <h1>BD a tareo automático</h1>
+          <div class="sub">Subes tu Excel del marcador y el sistema te arma resumen diario + tareo listo para exportar.</div>
+        </div>
+      </div>
+      <button class="theme-btn" id="themeBtn" type="button">🌙 Tema</button>
+    </div>
+
+    <div class="grid">
+      <aside class="panel">
+        <div class="panel-inner stack">
+          <div class="dropzone" id="dropzone">
+            <h3>Sube tu BD</h3>
+            <div class="small">Acepta .xlsx o .xls con columnas como <b>Nombre</b>, <b>Hora</b> y <b>Estado de asistencia</b>.</div>
+            <div style="height:12px"></div>
+            <input id="fileInput" type="file" accept=".xlsx,.xls" />
+          </div>
+
+          <div class="fields">
+            <label>Inicio
+              <input id="startDate" type="date" />
+            </label>
+            <label>Fin
+              <input id="endDate" type="date" />
+            </label>
+            <label>Almuerzo (horas)
+              <input id="lunchHours" type="number" value="1" min="0" step="0.5" />
+            </label>
+            <label>Jornal máximo
+              <input id="normalCap" type="number" value="8" min="1" step="0.5" />
+            </label>
+          </div>
+
+          <div class="btns">
+            <button class="primary" id="processBtn" type="button">Procesar BD</button>
+            <button class="secondary" id="downloadXlsxBtn" type="button" disabled>Descargar Excel</button>
+            <button class="secondary" id="downloadCsvBtn" type="button" disabled>Descargar CSV</button>
+            <button class="ghost" id="sampleBtn" type="button">Cargar ejemplo</button>
+          </div>
+
+          <div class="stack">
+            <div class="badge" id="statusBadge">Sin archivo cargado</div>
+            <div class="small" id="columnInfo">Aún no se detectaron columnas.</div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="content">
+        <section class="stats">
+          <div class="stat"><div class="small">Registros válidos</div><b class="mono" id="statRows">0</b></div>
+          <div class="stat"><div class="small">Colaboradores</div><b class="mono" id="statWorkers">0</b></div>
+          <div class="stat"><div class="small">Días resumidos</div><b class="mono" id="statDays">0</b></div>
+          <div class="stat"><div class="small">Filas resumen</div><b class="mono" id="statSummary">0</b></div>
+        </section>
+
+        <section class="panel">
+          <div class="tabs">
+            <button class="tab active" data-tab="resumen">Resumen diario</button>
+            <button class="tab" data-tab="tareo">Tareo</button>
+            <button class="tab" data-tab="bd">BD limpia</button>
+          </div>
+          <div id="tab-resumen" class="table-wrap"></div>
+          <div id="tab-tareo" class="table-wrap hidden"></div>
+          <div id="tab-bd" class="table-wrap hidden"></div>
+          <div class="footer-note">Regla usada: horas netas = horas brutas - almuerzo; horas decimal = redondeo hacia abajo a media hora; jornal = mínimo entre horas decimal y jornal máximo; H.S. = excedente.</div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const state = {
+    rawRows: [], cleanRows: [], summaryRows: [], tareoRows: [], workbookName: 'salida_tareo.xlsx',
+    columnMap: null, range: null
+  };
+
+  const els = {
+    fileInput: $('#fileInput'), dropzone: $('#dropzone'), startDate: $('#startDate'), endDate: $('#endDate'),
+    lunchHours: $('#lunchHours'), normalCap: $('#normalCap'), processBtn: $('#processBtn'),
+    downloadXlsxBtn: $('#downloadXlsxBtn'), downloadCsvBtn: $('#downloadCsvBtn'), sampleBtn: $('#sampleBtn'),
+    statRows: $('#statRows'), statWorkers: $('#statWorkers'), statDays: $('#statDays'), statSummary: $('#statSummary'),
+    statusBadge: $('#statusBadge'), columnInfo: $('#columnInfo'), themeBtn: $('#themeBtn'),
+    resumen: $('#tab-resumen'), tareo: $('#tab-tareo'), bd: $('#tab-bd')
+  };
+
+  const normalize = v => String(v ?? '').trim().toLowerCase();
+  const pad = n => String(n).padStart(2, '0');
+  const fmtDate = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+  const fmtDateInput = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const fmtTime = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const isSunday = d => d.getDay() === 0;
+  const excelDateValue = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
+  function parseExcelDate(value) {
+    if (value instanceof Date && !isNaN(value)) return value;
+    if (typeof value === 'number') {
+      const parsed = XLSX.SSF.parse_date_code(value);
+      if (parsed) return new Date(parsed.y, parsed.m - 1, parsed.d, parsed.H || 0, parsed.M || 0, parsed.S || 0);
+    }
+    const text = String(value ?? '').trim();
+    if (!text) return null;
+    const direct = new Date(text);
+    if (!isNaN(direct)) return direct;
+    const m = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (m) {
+      const y = m[3].length === 2 ? Number('20' + m[3]) : Number(m[3]);
+      return new Date(y, Number(m[2]) - 1, Number(m[1]), Number(m[4] || 0), Number(m[5] || 0), Number(m[6] || 0));
+    }
+    return null;
+  }
+
+  function detectColumns(headers) {
+    const found = { nombre:null, hora:null, estado:null, departamento:null, id:null, fuente:null };
+    headers.forEach(h => {
+      const k = normalize(h);
+      if (found.nombre == null && ['nombre','colaborador','trabajador','empleado','personal'].includes(k)) found.nombre = h;
+      if (found.hora == null && ['hora','fecha y hora','fecha hora','datetime','marcacion','marcación'].includes(k)) found.hora = h;
+      if (found.estado == null && ['estado de asistencia','estado','tipo','movimiento'].includes(k)) found.estado = h;
+      if (found.departamento == null && ['departamento','área','area'].includes(k)) found.departamento = h;
+      if (found.id == null && ['id de persona','id','codigo','código'].includes(k)) found.id = h;
+      if (found.fuente == null && ['fuente de datos','fuente'].includes(k)) found.fuente = h;
+    });
+    return found;
+  }
+
+  function setStatus(text, tone='') {
+    els.statusBadge.textContent = text;
+    els.statusBadge.className = 'badge' + (tone ? ' ' + tone : '');
+  }
+
+  function unique(arr){ return [...new Set(arr)]; }
+
+  function buildSummary(cleanRows, startDate, endDate, lunchHours, normalCap) {
+    const filtered = cleanRows.filter(r => {
+      const t = excelDateValue(r.fecha);
+      return t >= excelDateValue(startDate) && t <= excelDateValue(endDate);
+    });
+    const group = new Map();
+    for (const r of filtered) {
+      const key = `${r.nombre}__${fmtDate(r.fecha)}`;
+      if (!group.has(key)) group.set(key, { nombre:r.nombre, fecha:r.fecha, entradas:[], salidas:[], departamento:r.departamento || '' });
+      const g = group.get(key);
+      if (normalize(r.estado).includes('entrada')) g.entradas.push(r.hora);
+      if (normalize(r.estado).includes('salida')) g.salidas.push(r.hora);
+    }
+    const summaryRows = [...group.values()].map(g => {
+      const primera = g.entradas.length ? new Date(Math.min(...g.entradas.map(x => x.getTime()))) : null;
+      const ultima = g.salidas.length ? new Date(Math.max(...g.salidas.map(x => x.getTime()))) : null;
+      const brutas = primera && ultima ? (ultima - primera) / 36e5 : null;
+      const netas = brutas == null ? null : Math.max(0, brutas - lunchHours);
+      const decimal = netas == null ? null : Math.floor(netas * 2) / 2;
+      const jornal = decimal == null ? null : Math.min(normalCap, decimal);
+      const hs = decimal == null ? null : Math.max(0, decimal - normalCap);
+      return {
+        nombre:g.nombre, fecha:g.fecha, departamento:g.departamento,
+        primeraEntrada:primera, ultimaSalida:ultima,
+        horasBrutas:brutas, horasNetas:netas, horasDecimal:decimal, jornal, hs,
+        dominical:isSunday(g.fecha) ? (jornal || 0) : 0
+      };
+    }).sort((a,b)=> a.nombre.localeCompare(b.nombre) || a.fecha - b.fecha);
+    return { filtered, summaryRows };
+  }
+
+  function buildTareo(summaryRows, startDate, endDate) {
+    const dates = [];
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate()+1)) dates.push(new Date(d));
+    const workers = unique(summaryRows.map(r => r.nombre)).sort((a,b)=> a.localeCompare(b));
+    const idx = new Map(summaryRows.map(r => [`${r.nombre}__${fmtDate(r.fecha)}`, r]));
+    const rows = workers.map(name => {
+      const out = { nombre:name, hNormal:0, hExtras:0, hExtrasAnterior:0, dominical:0, dias:{} };
+      dates.forEach(d => {
+        const rec = idx.get(`${name}__${fmtDate(d)}`);
+        const jornal = rec?.jornal ?? 0;
+        const hs = rec?.hs ?? 0;
+        out.dias[fmtDate(d)] = { jornal, hs };
+        out.hNormal += jornal;
+        out.hExtras += hs;
+        if (isSunday(d)) out.dominical += jornal;
+      });
+      return out;
+    });
+    return { dates, rows };
+  }
+
+  function renderSimpleTable(container, headers, rows) {
+    let html = '<table><thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+    for (const row of rows) {
+      html += '<tr>' + row.map(v => `<td>${v ?? ''}</td>`).join('') + '</tr>';
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  function renderResumen() {
+    const rows = state.summaryRows.slice(0, 500).map(r => [
+      r.nombre, fmtDate(r.fecha), r.primeraEntrada ? fmtTime(r.primeraEntrada) : '', r.ultimaSalida ? fmtTime(r.ultimaSalida) : '',
+      r.horasBrutas?.toFixed(2) ?? '', r.horasNetas?.toFixed(2) ?? '', r.horasDecimal?.toFixed(2) ?? '',
+      r.jornal?.toFixed(2) ?? '', r.hs?.toFixed(2) ?? ''
+    ]);
+    renderSimpleTable(els.resumen, ['Nombre','Fecha','Primera entrada','Última salida','Horas brutas','Horas netas','Horas decimal','Jornal','H.S.'], rows);
+  }
+
+  function renderBD() {
+    const rows = state.cleanRows.slice(0, 500).map(r => [r.nombre, fmtDate(r.fecha), fmtTime(r.hora), r.estado, r.departamento || '']);
+    renderSimpleTable(els.bd, ['Nombre','Fecha','Hora','Estado','Departamento'], rows);
+  }
+
+  function renderTareo() {
+    const { dates, rows } = state.tareoRows;
+    let html = '<table><thead>';
+    html += '<tr><th rowspan="2">Colaboradores</th>' + dates.map(d => `<th colspan="2">${fmtDate(d)}</th>`).join('') + '<th rowspan="2">H.NORMAL</th><th rowspan="2">H.EXTRAS</th><th rowspan="2">H. EXTRAS ANTERIOR</th><th rowspan="2">DOMINICAL</th></tr>';
+    html += '<tr>' + dates.map(() => '<th>JORNAL</th><th>H.S.</th>').join('') + '</tr></thead><tbody>';
+    rows.forEach(r => {
+      html += `<tr><td>${r.nombre}</td>`;
+      dates.forEach(d => {
+        const k = fmtDate(d);
+        html += `<td>${(r.dias[k]?.jornal ?? 0).toFixed(2).replace(/\.00$/,'')}</td><td>${(r.dias[k]?.hs ?? 0).toFixed(2).replace(/\.00$/,'')}</td>`;
+      });
+      html += `<td>${r.hNormal.toFixed(2).replace(/\.00$/,'')}</td><td>${r.hExtras.toFixed(2).replace(/\.00$/,'')}</td><td>${r.hExtrasAnterior.toFixed(2).replace(/\.00$/,'')}</td><td>${r.dominical.toFixed(2).replace(/\.00$/,'')}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    els.tareo.innerHTML = html;
+  }
+
+  function updateStats(filtered) {
+    els.statRows.textContent = filtered.length;
+    els.statWorkers.textContent = unique(filtered.map(r => r.nombre)).length;
+    els.statDays.textContent = unique(state.summaryRows.map(r => fmtDate(r.fecha))).length;
+    els.statSummary.textContent = state.summaryRows.length;
+  }
+
+  function processData() {
+    if (!state.cleanRows.length) {
+      setStatus('Carga primero un archivo o el ejemplo', 'warn');
+      return;
+    }
+    const startDate = els.startDate.value ? new Date(els.startDate.value + 'T00:00:00') : state.range.start;
+    const endDate = els.endDate.value ? new Date(els.endDate.value + 'T00:00:00') : state.range.end;
+    const lunchHours = Number(els.lunchHours.value || 1);
+    const normalCap = Number(els.normalCap.value || 8);
+    const { filtered, summaryRows } = buildSummary(state.cleanRows, startDate, endDate, lunchHours, normalCap);
+    state.summaryRows = summaryRows;
+    state.tareoRows = buildTareo(summaryRows, startDate, endDate);
+    renderResumen(); renderTareo(); renderBD(); updateStats(filtered);
+    setStatus('Procesado correctamente', 'ok');
+    els.downloadXlsxBtn.disabled = !summaryRows.length;
+    els.downloadCsvBtn.disabled = !summaryRows.length;
+  }
+
+  function workbookFromState() {
+    const wb = XLSX.utils.book_new();
+    const bd = state.cleanRows.map(r => ({
+      Nombre:r.nombre, Fecha:fmtDate(r.fecha), Hora:fmtTime(r.hora), Estado:r.estado, Departamento:r.departamento || ''
+    }));
+    const resumen = state.summaryRows.map(r => ({
+      Nombre:r.nombre, Fecha:fmtDate(r.fecha), 'Primera entrada':r.primeraEntrada ? fmtTime(r.primeraEntrada) : '', 'Última salida':r.ultimaSalida ? fmtTime(r.ultimaSalida) : '',
+      'Horas brutas':r.horasBrutas ?? '', 'Horas netas':r.horasNetas ?? '', 'Horas decimal':r.horasDecimal ?? '', Jornal:r.jornal ?? '', 'H.S.':r.hs ?? '', Dominical:r.dominical ?? ''
+    }));
+    const tareoRows = state.tareoRows.rows.map(r => {
+      const row = { Colaboradores:r.nombre };
+      state.tareoRows.dates.forEach(d => {
+        const k = fmtDate(d);
+        row[`${k} JORNAL`] = r.dias[k]?.jornal ?? 0;
+        row[`${k} H.S.`] = r.dias[k]?.hs ?? 0;
+      });
+      row['H.NORMAL'] = r.hNormal;
+      row['H.EXTRAS'] = r.hExtras;
+      row['H. EXTRAS ANTERIOR'] = r.hExtrasAnterior;
+      row['DOMINICAL'] = r.dominical;
+      return row;
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(bd), 'BD_LIMPIA');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'RESUMEN_DIARIO');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tareoRows), 'TAREO_AUTOMATICO');
+    return wb;
+  }
+
+  function downloadXlsx() {
+    const wb = workbookFromState();
+    XLSX.writeFile(wb, state.workbookName);
+  }
+
+  function downloadCsv() {
+    const data = state.summaryRows.map(r => ({
+      Nombre:r.nombre, Fecha:fmtDate(r.fecha), PrimeraEntrada:r.primeraEntrada ? fmtTime(r.primeraEntrada) : '', UltimaSalida:r.ultimaSalida ? fmtTime(r.ultimaSalida) : '',
+      HorasBrutas:r.horasBrutas ?? '', HorasNetas:r.horasNetas ?? '', HorasDecimal:r.horasDecimal ?? '', Jornal:r.jornal ?? '', HS:r.hs ?? ''
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'resumen_diario.csv';
+    a.click();
+  }
+
+  function loadWorkbook(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type:'array', cellDates:true });
+        const sheet = wb.SheetNames[0];
+        const raw = XLSX.utils.sheet_to_json(wb.Sheets[sheet], { defval:'', raw:false });
+        state.rawRows = raw;
+        state.workbookName = (file.name || 'tareo') .replace(/\.(xlsx|xls)$/i, '') + '_procesado.xlsx';
+        prepareRows(raw);
+      } catch (err) {
+        console.error(err);
+        setStatus('No se pudo leer el Excel', 'warn');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function prepareRows(raw) {
+    if (!raw.length) {
+      setStatus('El archivo no tiene filas utilizables', 'warn');
+      return;
+    }
+    const headers = Object.keys(raw[0]);
+    const map = detectColumns(headers);
+    state.columnMap = map;
+    els.columnInfo.textContent = `Detectado -> Nombre: ${map.nombre || '—'} | Hora: ${map.hora || '—'} | Estado: ${map.estado || '—'}`;
+    if (!map.nombre || !map.hora || !map.estado) {
+      setStatus('Faltan columnas clave para procesar', 'warn');
+      return;
+    }
+    const cleanRows = raw.map(row => {
+      const dt = parseExcelDate(row[map.hora]);
+      if (!dt) return null;
+      return {
+        nombre: String(row[map.nombre] ?? '').trim(),
+        hora: dt,
+        fecha: new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()),
+        estado: String(row[map.estado] ?? '').trim(),
+        departamento: map.departamento ? String(row[map.departamento] ?? '').trim() : ''
+      };
+    }).filter(r => r && r.nombre && r.estado);
+    state.cleanRows = cleanRows.sort((a,b)=> a.nombre.localeCompare(b.nombre) || a.hora - b.hora);
+    if (!cleanRows.length) {
+      setStatus('No se obtuvieron registros válidos', 'warn');
+      return;
+    }
+    const dates = cleanRows.map(r => r.fecha.getTime());
+    state.range = { start:new Date(Math.min(...dates)), end:new Date(Math.max(...dates)) };
+    els.startDate.value = fmtDateInput(state.range.start);
+    els.endDate.value = fmtDateInput(state.range.end);
+    setStatus(`Archivo listo: ${cleanRows.length} registros válidos`, 'ok');
+    processData();
+  }
+
+  function loadSample() {
+    const sample = [
+      { Nombre:'Lamper Torres, Jose Ali', Hora:'01/04/2026 06:50', 'Estado de asistencia':'Registro de entrada' },
+      { Nombre:'Lamper Torres, Jose Ali', Hora:'01/04/2026 16:23', 'Estado de asistencia':'Registro de salida' },
+      { Nombre:'Lamper Torres, Jose Ali', Hora:'02/04/2026 06:54', 'Estado de asistencia':'Registro de entrada' },
+      { Nombre:'Lamper Torres, Jose Ali', Hora:'02/04/2026 18:05', 'Estado de asistencia':'Registro de salida' },
+      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'01/04/2026 07:02', 'Estado de asistencia':'Registro de entrada' },
+      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'01/04/2026 17:01', 'Estado de asistencia':'Registro de salida' },
+      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'02/04/2026 06:58', 'Estado de asistencia':'Registro de entrada' },
+      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'02/04/2026 16:55', 'Estado de asistencia':'Registro de salida' },
+      { Nombre:'Cordova Mori, Adriel', Hora:'05/04/2026 06:45', 'Estado de asistencia':'Registro de entrada' },
+      { Nombre:'Cordova Mori, Adriel', Hora:'05/04/2026 15:50', 'Estado de asistencia':'Registro de salida' }
+    ];
+    state.workbookName = 'tareo_ejemplo.xlsx';
+    prepareRows(sample);
+  }
+
+  els.processBtn.addEventListener('click', processData);
+  els.downloadXlsxBtn.addEventListener('click', downloadXlsx);
+  els.downloadCsvBtn.addEventListener('click', downloadCsv);
+  els.sampleBtn.addEventListener('click', loadSample);
+  els.fileInput.addEventListener('change', e => e.target.files[0] && loadWorkbook(e.target.files[0]));
+  ['dragenter','dragover'].forEach(ev => els.dropzone.addEventListener(ev, e => { e.preventDefault(); els.dropzone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev => els.dropzone.addEventListener(ev, e => { e.preventDefault(); els.dropzone.classList.remove('drag'); }));
+  els.dropzone.addEventListener('drop', e => { const f = e.dataTransfer.files?.[0]; if (f) loadWorkbook(f); });
+
+  document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    btn.classList.add('active');
+    ['resumen','tareo','bd'].forEach(k => document.getElementById('tab-' + k).classList.add('hidden'));
+    document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+  }));
+
+  els.themeBtn.addEventListener('click', () => {
+    const root = document.documentElement;
+    root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+})();
+</script>
+</body>
+</html>
