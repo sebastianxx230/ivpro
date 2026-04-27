@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Filtro automático de datos</title>
-  <meta name="description" content="Procesa datos de marcador, resumen diario y tareo.">
+  <meta name="description" content="Procesa datos de marcador, limpia marcaciones, genera resumen diario y tareo.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -20,31 +20,61 @@
       --primary:#63a8b0;--ok:#88ca5f;--danger:#df7d86;--warn:#f0a74b;--warn-bg:#4a3318;--warn-text:#ffd39c;--shadow:0 12px 28px rgba(0,0,0,.22);
       --planilla-soft:#244760;--day-sep:#3e5870;--totals:#232a31;--head-soft:#211f1b
     }
-    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.45}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.45}
     button,input{font:inherit}
-    .app{max-width:1540px;margin:auto;padding:18px}
+    .app{max-width:1560px;margin:auto;padding:18px}
     .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px}
-    .title-wrap{display:flex;gap:12px;align-items:flex-start}.logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--primary),#5b5bd6);display:grid;place-items:center;color:#fff;box-shadow:var(--shadow)}
-    .logo svg{width:25px;height:25px}.title{font-size:clamp(1.65rem,1.1rem + 1.6vw,2.6rem);line-height:1.08;font-weight:800}.subtitle{margin-top:4px;color:var(--muted);font-size:.95rem}
+    .title-wrap{display:flex;gap:12px;align-items:flex-start}
+    .logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--primary),#5b5bd6);display:grid;place-items:center;color:#fff;box-shadow:var(--shadow)}
+    .logo svg{width:25px;height:25px}
+    .title{font-size:clamp(1.65rem,1.1rem + 1.6vw,2.6rem);line-height:1.08;font-weight:800}
+    .subtitle{margin-top:4px;color:var(--muted);font-size:.95rem}
     .theme{border:1px solid var(--line);background:var(--panel);color:var(--text);padding:10px 14px;border-radius:999px;cursor:pointer}
     .top-filters{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:14px;margin-bottom:14px}
     .top-filters-grid{display:grid;grid-template-columns:1.9fr repeat(2,minmax(150px,1fr));gap:10px;align-items:end}
-    .field{display:grid;gap:6px}.field span{font-size:.8rem;font-weight:700;color:var(--muted)}
+    .field{display:grid;gap:6px}
+    .field span{font-size:.8rem;font-weight:700;color:var(--muted)}
     input{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text)}
-    .upload-box{display:grid;gap:10px}.upload-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .file-input{display:none}.file-btn{display:inline-flex;align-items:center;justify-content:center;min-width:180px;padding:11px 16px;border-radius:999px;border:1px solid var(--line);background:var(--panel-2);font-weight:800;cursor:pointer;white-space:nowrap}
+    .upload-box{display:grid;gap:10px}
+    .upload-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .file-input{display:none}
+    .file-btn{display:inline-flex;align-items:center;justify-content:center;min-width:180px;padding:11px 16px;border-radius:999px;border:1px solid var(--line);background:var(--panel-2);font-weight:800;cursor:pointer;white-space:nowrap}
     .file-name{font-size:.92rem;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:360px}
-    .btn{border:none;border-radius:12px;padding:10px 12px;font-weight:800;cursor:pointer}.btn-primary{background:var(--primary);color:#fff}.btn-secondary{background:var(--panel-2);border:1px solid var(--line);color:var(--text)}.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+    .btn{border:none;border-radius:12px;padding:10px 12px;font-weight:800;cursor:pointer}
+    .btn-primary{background:var(--primary);color:#fff}
+    .btn-secondary{background:var(--panel-2);border:1px solid var(--line);color:var(--text)}
+    .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
     .header-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-start;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
-    .status-row{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap}.status-left{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.pill{display:inline-flex;align-items:center;padding:7px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel-2);font-size:.8rem;font-weight:800}.ok{color:var(--ok)}.error{color:var(--danger)}
-    .small{font-size:.9rem;color:var(--muted)} .error-box{padding:10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--danger) 35%, var(--line));background:color-mix(in srgb,var(--danger) 10%, transparent);color:var(--danger);font-size:.9rem;margin-top:10px}.hidden{display:none}
-    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}.stat{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px 16px;box-shadow:var(--shadow)}.stat .k{font-size:.84rem;color:var(--muted)}.stat .v{font-size:1.5rem;font-weight:800;margin-top:6px;font-variant-numeric:tabular-nums}
+    .status-row{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap}
+    .status-left{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .pill{display:inline-flex;align-items:center;padding:7px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel-2);font-size:.8rem;font-weight:800}
+    .ok{color:var(--ok)}
+    .error{color:var(--danger)}
+    .small{font-size:.9rem;color:var(--muted)}
+    .error-box{padding:10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--danger) 35%, var(--line));background:color-mix(in srgb,var(--danger) 10%, transparent);color:var(--danger);font-size:.9rem;margin-top:10px}
+    .hidden{display:none}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+    .stat{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px 16px;box-shadow:var(--shadow)}
+    .stat .k{font-size:.84rem;color:var(--muted)}
+    .stat .v{font-size:1.5rem;font-weight:800;margin-top:6px;font-variant-numeric:tabular-nums}
     .main-card{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
     .main-toolbar{display:flex;justify-content:flex-start;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line)}
-    .tabs{display:flex;gap:26px;flex-wrap:wrap}.tab{padding:0;background:transparent;border:none;font-weight:800;color:var(--muted);cursor:pointer;position:relative}.tab.active{color:var(--primary)}.tab.active::after{content:'';position:absolute;left:0;bottom:-12px;width:100%;height:3px;background:var(--primary);border-radius:999px}
-    .table-box{overflow:auto;max-height:70vh}.table-box table{width:100%;border-collapse:separate;border-spacing:0;font-size:.91rem}.table-box th,.table-box td{padding:11px 12px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left}.table-box thead th{position:sticky;top:0;background:var(--panel);z-index:2;box-shadow:0 1px 0 var(--line)}.table-box tbody tr:hover td{background:color-mix(in srgb,var(--primary) 4%, transparent)}
-    .table-box .num{text-align:center;font-variant-numeric:tabular-nums}.table-box .name-col{position:sticky;left:0;background:var(--panel);z-index:1;box-shadow:1px 0 0 var(--line)} .table-box thead .name-col{z-index:3}
-    .planilla-name{background:var(--planilla-soft) !important;color:#1f1f1a !important;font-weight:700}.rrhh-name{background:#ffffff !important;color:var(--text) !important;font-weight:500}
+    .tabs{display:flex;gap:26px;flex-wrap:wrap}
+    .tab{padding:0;background:transparent;border:none;font-weight:800;color:var(--muted);cursor:pointer;position:relative}
+    .tab.active{color:var(--primary)}
+    .tab.active::after{content:'';position:absolute;left:0;bottom:-12px;width:100%;height:3px;background:var(--primary);border-radius:999px}
+    .table-box{overflow:auto;max-height:70vh}
+    .table-box table{width:100%;border-collapse:separate;border-spacing:0;font-size:.91rem}
+    .table-box th,.table-box td{padding:11px 12px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left}
+    .table-box thead th{position:sticky;top:0;background:var(--panel);z-index:2;box-shadow:0 1px 0 var(--line)}
+    .table-box tbody tr:hover td{background:color-mix(in srgb,var(--primary) 4%, transparent)}
+    .table-box .num{text-align:center;font-variant-numeric:tabular-nums}
+    .table-box .name-col{position:sticky;left:0;background:var(--panel);z-index:1;box-shadow:1px 0 0 var(--line)}
+    .table-box thead .name-col{z-index:3}
+    .planilla-name{background:var(--planilla-soft) !important;color:#1f1f1a !important;font-weight:700}
+    .rrhh-name{background:#ffffff !important;color:var(--text) !important;font-weight:500}
     [data-theme="dark"] .planilla-name{background:#244760 !important;color:#eef7ff !important}
     [data-theme="dark"] .rrhh-name{background:#23211d !important;color:#f2eee7 !important}
     [data-theme="dark"] .table-box thead th,[data-theme="dark"] .table-box .name-col{background:#1f1d19 !important;color:#f2eee7 !important}
@@ -54,20 +84,40 @@
     .totals-head,.totals-cell{background:var(--totals) !important}
     .totals-start{border-left:3px solid var(--line) !important}
     .alert-cell{background:var(--warn-bg) !important;color:var(--warn-text) !important;font-weight:800}
-    .dropzone{border:1.5px dashed var(--line);background:var(--panel-2);border-radius:14px;padding:12px}.dropzone.drag{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 8%, var(--panel-2))}
-    @media (max-width:1320px){.top-filters-grid{grid-template-columns:1fr 1fr 1fr}.header-actions{justify-content:flex-start}}
-    @media (max-width:980px){.stats{grid-template-columns:1fr 1fr}.table-box{max-height:none}.main-toolbar{flex-direction:column;align-items:flex-start}}
-    @media (max-width:680px){.app{padding:12px}.stats,.top-filters-grid{grid-template-columns:1fr}.topbar{flex-direction:column}.upload-row,.header-actions{flex-direction:column;align-items:stretch}.file-name{max-width:100%}}
+    .dropzone{border:1.5px dashed var(--line);background:var(--panel-2);border-radius:14px;padding:12px}
+    .dropzone.drag{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 8%, var(--panel-2))}
+    @media (max-width:1320px){
+      .top-filters-grid{grid-template-columns:1fr 1fr 1fr}
+      .header-actions{justify-content:flex-start}
+    }
+    @media (max-width:980px){
+      .stats{grid-template-columns:1fr 1fr}
+      .table-box{max-height:none}
+      .main-toolbar{flex-direction:column;align-items:flex-start}
+    }
+    @media (max-width:680px){
+      .app{padding:12px}
+      .stats,.top-filters-grid{grid-template-columns:1fr}
+      .topbar{flex-direction:column}
+      .upload-row,.header-actions{flex-direction:column;align-items:stretch}
+      .file-name{max-width:100%}
+    }
   </style>
 </head>
 <body>
 <div class="app">
   <div class="topbar">
     <div class="title-wrap">
-      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18V6l7-3 7 3v12l-7 3-7-3Z"></path><path d="M12 3v18"></path><path d="M5 6l7 4 7-4"></path></svg></div>
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 18V6l7-3 7 3v12l-7 3-7-3Z"></path>
+          <path d="M12 3v18"></path>
+          <path d="M5 6l7 4 7-4"></path>
+        </svg>
+      </div>
       <div>
         <div class="title">Filtro automático de datos</div>
-        <div class="subtitle"></div>
+        <div class="subtitle">Limpia marcaciones, detecta anomalías y luego calcula el tareo.</div>
       </div>
     </div>
     <button id="themeBtn" class="theme" type="button">Tema</button>
@@ -89,18 +139,21 @@
       <label class="field"><span>Inicio</span><input id="startDate" type="date"></label>
       <label class="field"><span>Fin</span><input id="endDate" type="date"></label>
     </div>
+
     <div class="header-actions">
       <button id="processBtn" class="btn btn-primary" type="button">Procesar</button>
       <button id="downloadXlsxBtn" class="btn btn-secondary" type="button" disabled>Descargar Excel</button>
       <button id="downloadCsvBtn" class="btn btn-secondary" type="button" disabled>Descargar CSV</button>
     </div>
+
     <div id="errorBox" class="error-box hidden"></div>
+
     <div class="status-row">
       <div class="status-left">
         <div id="statusBadge" class="pill">Sin archivo cargado</div>
         <div id="columnInfo" class="small">Aún no se detectaron columnas.</div>
       </div>
-      <div class="small">La descarga genera la tabla tareo en datos puros para copiar y pegar.</div>
+      <div class="small">La descarga genera el tareo y hojas auxiliares para revisión.</div>
     </div>
   </section>
 
@@ -117,306 +170,845 @@
         <button class="tab active" data-tab="resumen">Resumen diario</button>
         <button class="tab" data-tab="tareo">Tareo</button>
         <button class="tab" data-tab="bd">BD limpia</button>
+        <button class="tab" data-tab="anomalias">Anomalías</button>
       </div>
     </div>
     <div id="tab-resumen" class="table-box"></div>
     <div id="tab-tareo" class="table-box hidden"></div>
     <div id="tab-bd" class="table-box hidden"></div>
+    <div id="tab-anomalias" class="table-box hidden"></div>
   </section>
 </div>
 
 <script>
 (() => {
   const $ = s => document.querySelector(s);
-  const state = { workbook:null, rawRows:[], cleanRows:[], summaryRows:[], tareo:{dates:[],rows:[]}, fileName:'tareo_tabla.xlsx', map:null };
-  const els = {
-    fileInput:$('#fileInput'), fileName:$('#fileName'), dropzone:$('#dropzone'), themeBtn:$('#themeBtn'), errorBox:$('#errorBox'), statusBadge:$('#statusBadge'), columnInfo:$('#columnInfo'),
-    startDate:$('#startDate'), endDate:$('#endDate'), processBtn:$('#processBtn'), downloadXlsxBtn:$('#downloadXlsxBtn'), downloadCsvBtn:$('#downloadCsvBtn'), sampleBtn:$('#sampleBtn'),
-    statRows:$('#statRows'), statWorkers:$('#statWorkers'), statDays:$('#statDays'), statSummary:$('#statSummary'), resumen:$('#tab-resumen'), tareo:$('#tab-tareo'), bd:$('#tab-bd')
+
+  const SETTINGS = {
+    dedupeMinutes: 3,
+    weekdayLunchHours: 1,
+    minHoursToDiscountLunch: 5,
+    applyLatePenalty: false,
+    baseStartHour: 7
   };
 
-  const PLANILLA_SET = new Set(['lamper torres jose ali','munoz garcia miguel angel','rincon ramirez giovanni jose','rubina reynoso nilton aquiles','saldana alanya carlos alberto','valderrama alva sergio angel','valderrama mozombite gustavo']);
+  const state = {
+    workbook: null,
+    rawRows: [],
+    cleanRows: [],
+    summaryRows: [],
+    anomalyRows: [],
+    workers: [],
+    tareo: { dates: [], rows: [] },
+    fileName: 'tareo_tabla.xlsx',
+    map: null
+  };
+
+  const els = {
+    fileInput: $('#fileInput'),
+    fileName: $('#fileName'),
+    dropzone: $('#dropzone'),
+    themeBtn: $('#themeBtn'),
+    errorBox: $('#errorBox'),
+    statusBadge: $('#statusBadge'),
+    columnInfo: $('#columnInfo'),
+    startDate: $('#startDate'),
+    endDate: $('#endDate'),
+    processBtn: $('#processBtn'),
+    downloadXlsxBtn: $('#downloadXlsxBtn'),
+    downloadCsvBtn: $('#downloadCsvBtn'),
+    sampleBtn: $('#sampleBtn'),
+    statRows: $('#statRows'),
+    statWorkers: $('#statWorkers'),
+    statDays: $('#statDays'),
+    statSummary: $('#statSummary'),
+    resumen: $('#tab-resumen'),
+    tareo: $('#tab-tareo'),
+    bd: $('#tab-bd'),
+    anomalias: $('#tab-anomalias')
+  };
+
+  const PLANILLA_SET = new Set([
+    'lamper torres jose ali',
+    'munoz garcia miguel angel',
+    'rincon ramirez giovanni jose',
+    'rubina reynoso nilton aquiles',
+    'saldana alanya carlos alberto',
+    'valderrama alva sergio angel',
+    'valderrama mozombite gustavo'
+  ]);
+
   const DAYS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   const HOLIDAY_OVERRIDES = new Set(['02/04/2026','03/04/2026']);
 
-  const pad = n => String(n).padStart(2,'0');
+  const pad = n => String(n).padStart(2, '0');
   const normalize = v => String(v ?? '').trim().toLowerCase();
-  const normalizeSimple = v => normalize(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
-  const fmtDate = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
-  const fmtInput = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const normalizeSimple = v => normalize(v)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const fmtDate = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  const fmtInput = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const fmtTime = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   const weekdayName = d => DAYS[d.getDay()];
   const dayOnly = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const stamp = d => dayOnly(d).getTime();
   const isSunday = d => d.getDay() === 0;
   const isWeekday = d => d.getDay() >= 1 && d.getDay() <= 5;
-  const unique = arr => [...new Set(arr.filter(v => String(v ?? '') !== ''))];
   const roundDownHalf = n => Math.floor((n || 0) * 2) / 2;
-  const hoursBetween = (a,b) => Math.max(0, (b - a) / 36e5);
+  const hoursBetween = (a, b) => Math.max(0, (b - a) / 36e5);
+  const diffMinutes = (a, b) => Math.abs((b - a) / 60000);
 
-  function displayNum(v){ if (v == null || v === '') return ''; const n = Number(v); return isFinite(n) ? n.toFixed(1).replace(/\.0$/, '') : v; }
-  function getGroupByWorker(name){ return PLANILLA_SET.has(normalizeSimple(name)) ? 'PLANILLA' : 'RRHH'; }
-  function isHoliday(d){ return HOLIDAY_OVERRIDES.has(fmtDate(d)); }
-  function showError(msg){ els.errorBox.textContent = msg; els.errorBox.classList.remove('hidden'); }
-  function clearError(){ els.errorBox.classList.add('hidden'); els.errorBox.textContent = ''; }
-  function setStatus(text, tone=''){ els.statusBadge.className = 'pill ' + tone; els.statusBadge.textContent = text; }
-  function setFileName(text){ els.fileName.textContent = text || 'Ningún archivo seleccionado'; }
+  function displayNum(v) {
+    if (v == null || v === '') return '';
+    const n = Number(v);
+    return isFinite(n) ? n.toFixed(1).replace(/\.0$/, '') : String(v);
+  }
 
-  function calcWorkedHours(primera, ultima, fecha){
-    if (!primera || !ultima) return { brutas:null, netas:null, decimal:null, jornal:null, hs:null, dominical:0 };
+  function escapeHtml(v) {
+    return String(v ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
-    const brutas = hoursBetween(primera, ultima);
-    const lunchHours = isSunday(fecha) ? 0 : 1;
-    const netas = Math.max(0, brutas - lunchHours);
-    const decimal = roundDownHalf(netas);
+  function getGroupByWorker(name) {
+    return PLANILLA_SET.has(normalizeSimple(name)) ? 'PLANILLA' : 'RRHH';
+  }
 
-    if (isSunday(fecha)) {
-      return { brutas, netas, decimal, jornal:0, hs:decimal, dominical:decimal };
+  function isHoliday(d) {
+    return HOLIDAY_OVERRIDES.has(fmtDate(d));
+  }
+
+  function showError(msg) {
+    els.errorBox.textContent = msg;
+    els.errorBox.classList.remove('hidden');
+  }
+
+  function clearError() {
+    els.errorBox.classList.add('hidden');
+    els.errorBox.textContent = '';
+  }
+
+  function setStatus(text, tone = '') {
+    els.statusBadge.className = 'pill ' + tone;
+    els.statusBadge.textContent = text;
+  }
+
+  function setFileName(text) {
+    els.fileName.textContent = text || 'Ningún archivo seleccionado';
+  }
+
+  function getEventType(estado) {
+    const k = normalizeSimple(estado);
+    if (
+      k.includes('entrada') ||
+      k.includes('ingreso') ||
+      k.includes('check in') ||
+      k.includes('checkin') ||
+      k === 'in'
+    ) return 'IN';
+
+    if (
+      k.includes('salida') ||
+      k.includes('egreso') ||
+      k.includes('check out') ||
+      k.includes('checkout') ||
+      k === 'out'
+    ) return 'OUT';
+
+    return '';
+  }
+
+  function parseExcelDate(value) {
+    if (value instanceof Date && !isNaN(value)) return value;
+
+    if (typeof value === 'number') {
+      const p = XLSX.SSF.parse_date_code(value);
+      if (p) return new Date(p.y, p.m - 1, p.d, p.H || 0, p.M || 0, p.S || 0);
     }
 
-    const horaBase = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate(), 7, 0, 0, 0);
-    const tardanzaMin = Math.max(0, Math.round((primera - horaBase) / 60000));
-    const bloquesTardanza = tardanzaMin <= 0 ? 0 : Math.ceil(tardanzaMin / 30);
-    const topeJornal = Math.max(0, 8 - (bloquesTardanza * 0.5));
-    const jornal = Math.min(topeJornal, decimal);
-    const hs = Math.max(0, roundDownHalf(decimal - jornal));
+    const t = String(value ?? '').trim();
+    if (!t) return null;
 
-    return { brutas, netas, decimal, jornal, hs, dominical:0 };
-  }
-
-  function parseExcelDate(value){
-    if (value instanceof Date && !isNaN(value)) return value;
-    if (typeof value === 'number') { const p = XLSX.SSF.parse_date_code(value); if (p) return new Date(p.y, p.m-1, p.d, p.H || 0, p.M || 0, p.S || 0); }
-    const t = String(value ?? '').trim(); if (!t) return null;
     const isoLike = t.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-    if (isoLike) return new Date(Number(isoLike[1]), Number(isoLike[2])-1, Number(isoLike[3]), Number(isoLike[4]||0), Number(isoLike[5]||0), Number(isoLike[6]||0));
+    if (isoLike) {
+      return new Date(
+        Number(isoLike[1]),
+        Number(isoLike[2]) - 1,
+        Number(isoLike[3]),
+        Number(isoLike[4] || 0),
+        Number(isoLike[5] || 0),
+        Number(isoLike[6] || 0)
+      );
+    }
+
     const dmy = t.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-    if (dmy) { const y = dmy[3].length === 2 ? Number('20' + dmy[3]) : Number(dmy[3]); return new Date(y, Number(dmy[2]) - 1, Number(dmy[1]), Number(dmy[4] || 0), Number(dmy[5] || 0), Number(dmy[6] || 0)); }
-    const direct = new Date(t); return isNaN(direct) ? null : direct;
+    if (dmy) {
+      const y = dmy[3].length === 2 ? Number('20' + dmy[3]) : Number(dmy[3]);
+      return new Date(
+        y,
+        Number(dmy[2]) - 1,
+        Number(dmy[1]),
+        Number(dmy[4] || 0),
+        Number(dmy[5] || 0),
+        Number(dmy[6] || 0)
+      );
+    }
+
+    const direct = new Date(t);
+    return isNaN(direct) ? null : direct;
   }
 
-  function detectColumns(headers){
-    const found = { nombre:'', hora:'', estado:'' };
+  function detectColumns(headers) {
+    const found = { idPersona: '', nombre: '', hora: '', estado: '' };
+
     headers.forEach(h => {
-      const k = normalize(h);
-      if (!found.nombre && ['nombre','colaborador','trabajador','empleado','personal','name'].includes(k)) found.nombre = h;
-      if (!found.hora && ['hora','fecha y hora','fecha hora','datetime','marcacion','marcación','fecha','time'].includes(k)) found.hora = h;
-      if (!found.estado && ['estado de asistencia','estado','tipo','movimiento','attendance status'].includes(k)) found.estado = h;
+      const k = normalizeSimple(h);
+
+      if (!found.idPersona && [
+        'id de persona','id persona','codigo de persona','codigo persona','id trabajador','id empleado','legajo','codigo','id'
+      ].includes(k)) found.idPersona = h;
+
+      if (!found.nombre && [
+        'nombre','colaborador','trabajador','empleado','personal','name','nombre completo'
+      ].includes(k)) found.nombre = h;
+
+      if (!found.hora && [
+        'hora','fecha y hora','fecha hora','datetime','marcacion','marcacion completa','fecha','time'
+      ].includes(k)) found.hora = h;
+
+      if (!found.estado && [
+        'estado de asistencia','estado','tipo','movimiento','attendance status'
+      ].includes(k)) found.estado = h;
     });
+
     return found;
   }
 
-  function buildRows(rows, map){
-    if (!map.nombre || !map.hora || !map.estado) throw new Error('No se detectaron bien las columnas clave de Nombre, Hora y Estado.');
+  function getWorkerKey(row) {
+    return String(row.idPersona || '').trim() || normalizeSimple(row.nombre);
+  }
+
+  function buildRows(rows, map) {
+    if (!map.nombre || !map.hora || !map.estado) {
+      throw new Error('No se detectaron bien las columnas clave de Nombre, Hora y Estado.');
+    }
+
     return rows.map((row, i) => {
       const dt = parseExcelDate(row[map.hora]);
       const nombre = String(row[map.nombre] ?? '').trim();
       const estado = String(row[map.estado] ?? '').trim();
+      const idPersona = map.idPersona ? String(row[map.idPersona] ?? '').trim() : '';
+      const tipo = getEventType(estado);
+
       if (!dt || !nombre || !estado) return null;
-      return { nombre, hora:dt, fecha:dayOnly(dt), estado, grupo:getGroupByWorker(nombre), fila:i + 2 };
-    }).filter(Boolean).sort((a,b) => a.fila - b.fila || a.hora - b.hora);
+
+      return {
+        idPersona,
+        nombre,
+        hora: dt,
+        fecha: dayOnly(dt),
+        estado,
+        tipo,
+        grupo: getGroupByWorker(nombre),
+        fila: i + 2
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.hora - b.hora || a.fila - b.fila);
   }
 
-  function workerOrder(cleanRows){ const seen = new Set(), out = []; cleanRows.forEach(r => { if (!seen.has(r.nombre)) { seen.add(r.nombre); out.push(r.nombre); } }); return out; }
+  function buildWorkerCatalog(rows) {
+    const catalog = new Map();
 
-  function handleRowsLoaded(rows){
-    state.rawRows = rows; state.map = detectColumns(Object.keys(rows[0] || {}));
-    els.columnInfo.textContent = `Detectado → Nombre: ${state.map.nombre || '—'} | Hora: ${state.map.hora || '—'} | Estado: ${state.map.estado || '—'}`;
-    state.cleanRows = buildRows(rows, state.map);
-    if (!state.cleanRows.length) throw new Error('No se obtuvieron registros válidos en el archivo cargado.');
-    const ds = state.cleanRows.map(r => stamp(r.fecha));
-    els.startDate.value = fmtInput(new Date(Math.min(...ds)));
-    els.endDate.value = fmtInput(new Date(Math.max(...ds)));
-    setStatus(`Archivo listo: ${state.cleanRows.length} registros válidos`, 'ok');
-    processNow();
+    [...rows]
+      .sort((a, b) => a.fila - b.fila)
+      .forEach(r => {
+        const key = getWorkerKey(r);
+        if (!catalog.has(key)) {
+          catalog.set(key, {
+            workerKey: key,
+            idPersona: r.idPersona,
+            nombre: r.nombre,
+            grupo: r.grupo,
+            order: r.fila
+          });
+        }
+      });
+
+    return [...catalog.values()].sort((a, b) => {
+      if (a.grupo !== b.grupo) return a.grupo === 'PLANILLA' ? -1 : 1;
+      return a.order - b.order;
+    });
   }
 
-  function buildSummary(cleanRows, startDate, endDate){
-    const effectiveRows = cleanRows.filter(r => stamp(r.fecha) >= stamp(startDate) && stamp(r.fecha) <= stamp(endDate));
+  function analyzeDayMarks(records, fecha) {
+    const anomalies = [];
+    const typed = [...records]
+      .sort((a, b) => a.hora - b.hora || a.fila - b.fila)
+      .filter(r => {
+        if (r.tipo) return true;
+        anomalies.push(`Estado no reconocido: ${r.estado} ${fmtTime(r.hora)}`);
+        return false;
+      });
+
+    const cleaned = [];
+
+    for (const r of typed) {
+      const prev = cleaned[cleaned.length - 1];
+
+      if (prev && prev.tipo === r.tipo && diffMinutes(prev.hora, r.hora) <= SETTINGS.dedupeMinutes) {
+        anomalies.push(`${r.tipo === 'IN' ? 'Entrada' : 'Salida'} duplicada ${fmtTime(r.hora)}`);
+        continue;
+      }
+
+      cleaned.push(r);
+    }
+
+    const sessions = [];
+    let openEntry = null;
+
+    for (const r of cleaned) {
+      if (r.tipo === 'IN') {
+        if (!openEntry) {
+          openEntry = r;
+        } else {
+          anomalies.push(`Entrada repetida ${fmtTime(r.hora)}`);
+        }
+      }
+
+      if (r.tipo === 'OUT') {
+        if (!openEntry) {
+          anomalies.push(`Salida sin entrada ${fmtTime(r.hora)}`);
+          continue;
+        }
+
+        if (r.hora <= openEntry.hora) {
+          anomalies.push(`Salida antes de entrada ${fmtTime(r.hora)}`);
+          continue;
+        }
+
+        sessions.push({
+          entrada: openEntry.hora,
+          salida: r.hora,
+          horas: hoursBetween(openEntry.hora, r.hora)
+        });
+
+        openEntry = null;
+      }
+    }
+
+    if (openEntry) anomalies.push(`Entrada sin salida ${fmtTime(openEntry.hora)}`);
+
+    const totalBruto = sessions.reduce((acc, s) => acc + s.horas, 0);
+    const lunchHours = isSunday(fecha) ? 0 : (totalBruto >= SETTINGS.minHoursToDiscountLunch ? SETTINGS.weekdayLunchHours : 0);
+    const totalNeto = Math.max(0, totalBruto - lunchHours);
+    const decimal = roundDownHalf(totalNeto);
+
+    return {
+      rawCount: records.length,
+      cleanedCount: cleaned.length,
+      sessions,
+      anomalies,
+      primeraEntrada: sessions[0]?.entrada || cleaned.find(x => x.tipo === 'IN')?.hora || null,
+      ultimaSalida: sessions[sessions.length - 1]?.salida || [...cleaned].reverse().find(x => x.tipo === 'OUT')?.hora || null,
+      totalBruto: sessions.length ? totalBruto : null,
+      totalNeto: sessions.length ? totalNeto : null,
+      decimal: sessions.length ? decimal : null
+    };
+  }
+
+  function calcWorkedHoursFromAnalysis(analysis, fecha) {
+    if (!analysis.sessions.length) {
+      return { brutas: null, netas: null, decimal: null, jornal: 0, hs: 0, dominical: 0 };
+    }
+
+    const brutas = analysis.totalBruto;
+    const netas = analysis.totalNeto;
+    const decimal = analysis.decimal;
+
+    if (isSunday(fecha)) {
+      return { brutas, netas, decimal, jornal: 0, hs: decimal, dominical: decimal };
+    }
+
+    let jornal = Math.min(8, decimal);
+    let hs = Math.max(0, roundDownHalf(decimal - jornal));
+
+    if (SETTINGS.applyLatePenalty && analysis.primeraEntrada) {
+      const horaBase = new Date(
+        fecha.getFullYear(),
+        fecha.getMonth(),
+        fecha.getDate(),
+        SETTINGS.baseStartHour,
+        0, 0, 0
+      );
+
+      const tardanzaMin = Math.max(0, Math.round((analysis.primeraEntrada - horaBase) / 60000));
+      const bloquesTardanza = tardanzaMin <= 0 ? 0 : Math.ceil(tardanzaMin / 30);
+      const topeJornal = Math.max(0, 8 - (bloquesTardanza * 0.5));
+      jornal = Math.min(topeJornal, decimal);
+      hs = Math.max(0, roundDownHalf(decimal - jornal));
+    }
+
+    return { brutas, netas, decimal, jornal, hs, dominical: 0 };
+  }
+
+  function buildSummary(cleanRows, startDate, endDate) {
+    const effectiveRows = cleanRows.filter(r =>
+      stamp(r.fecha) >= stamp(startDate) && stamp(r.fecha) <= stamp(endDate)
+    );
+
     const group = new Map();
 
     effectiveRows.forEach(r => {
-      const key = `${r.nombre}__${fmtDate(r.fecha)}`;
-      if (!group.has(key)) group.set(key, { nombre:r.nombre, fecha:r.fecha, grupo:r.grupo, entradas:[], salidas:[], order:r.fila });
+      const workerKey = getWorkerKey(r);
+      const key = `${workerKey}__${fmtDate(r.fecha)}`;
+
+      if (!group.has(key)) {
+        group.set(key, {
+          workerKey,
+          idPersona: r.idPersona,
+          nombre: r.nombre,
+          fecha: r.fecha,
+          grupo: r.grupo,
+          records: [],
+          order: r.fila
+        });
+      }
+
       const g = group.get(key);
-      if (normalize(r.estado).includes('entrada')) g.entradas.push(r.hora);
-      if (normalize(r.estado).includes('salida')) g.salidas.push(r.hora);
+      g.records.push(r);
       if (r.fila < g.order) g.order = r.fila;
     });
 
+    const workers = buildWorkerCatalog(effectiveRows);
+
     const summaryRows = [...group.values()].map(g => {
-      const primera = g.entradas.length ? new Date(Math.min(...g.entradas.map(x => x.getTime()))) : null;
-      const ultima = g.salidas.length ? new Date(Math.max(...g.salidas.map(x => x.getTime()))) : null;
+      const analysis = analyzeDayMarks(g.records, g.fecha);
+      const calc = calcWorkedHoursFromAnalysis(analysis, g.fecha);
+
       let alerta = '';
-
-      if ((!primera || !ultima) && isWeekday(g.fecha) && !isHoliday(g.fecha)) alerta = 'X';
-
-      const calc = calcWorkedHours(primera, ultima, g.fecha);
-      let jornal = calc.jornal;
-      let hs = calc.hs;
-      let dominical = calc.dominical;
-
-      if (isHoliday(g.fecha) && !primera && !ultima) {
-        jornal = 0;
-        hs = 0;
-        dominical = 0;
+      if (!analysis.sessions.length && isWeekday(g.fecha) && !isHoliday(g.fecha)) {
+        alerta = 'X';
+      } else if (analysis.anomalies.length) {
+        alerta = 'REV';
       }
 
       return {
-        nombre:g.nombre,
-        fecha:g.fecha,
-        grupo:g.grupo,
-        primeraEntrada:primera,
-        ultimaSalida:ultima,
-        horasBrutas:calc.brutas,
-        horasNetas:calc.netas,
-        horasDecimal:calc.decimal,
-        jornal,
-        hs,
-        dominical,
-        order:g.order,
-        feriado:isHoliday(g.fecha),
+        workerKey: g.workerKey,
+        idPersona: g.idPersona,
+        nombre: g.nombre,
+        fecha: g.fecha,
+        grupo: g.grupo,
+        marcas: analysis.rawCount,
+        marcasLimpias: analysis.cleanedCount,
+        sesiones: analysis.sessions.length,
+        primeraEntrada: analysis.primeraEntrada,
+        ultimaSalida: analysis.ultimaSalida,
+        horasBrutas: calc.brutas,
+        horasNetas: calc.netas,
+        horasDecimal: calc.decimal,
+        jornal: calc.jornal,
+        hs: calc.hs,
+        dominical: calc.dominical,
+        anomalias: analysis.anomalies.length,
+        detalle: analysis.anomalies.join(' | '),
+        order: g.order,
+        feriado: isHoliday(g.fecha),
         alerta
       };
-    }).sort((a,b) => (a.grupo === b.grupo ? a.order - b.order || a.fecha - b.fecha : (a.grupo === 'PLANILLA' ? -1 : 1)));
+    }).sort((a, b) => {
+      if (a.grupo !== b.grupo) return a.grupo === 'PLANILLA' ? -1 : 1;
+      if (a.order !== b.order) return a.order - b.order;
+      return a.fecha - b.fecha;
+    });
 
-    return { summaryRows, effectiveRows };
+    return { summaryRows, effectiveRows, workers };
   }
 
-  function buildTareo(summaryRows, cleanRows, startDate, endDate){
-    const dates = []; for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) dates.push(new Date(d));
-    const ordered = ['PLANILLA','RRHH'].flatMap(g => workerOrder(cleanRows.filter(r => r.grupo === g)));
-    const idx = new Map(summaryRows.map(r => [`${r.nombre}__${fmtDate(r.fecha)}`, r]));
-    const rows = ordered.map(nombre => {
-      const grupo = getGroupByWorker(nombre); const out = { nombre, grupo, dias:{}, hNormal:0, hExtras:0, dominical:0 };
+  function buildTareo(summaryRows, workers, startDate, endDate) {
+    const dates = [];
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      dates.push(new Date(d));
+    }
+
+    const idx = new Map(summaryRows.map(r => [`${r.workerKey}__${fmtDate(r.fecha)}`, r]));
+
+    const rows = workers.map(w => {
+      const out = {
+        workerKey: w.workerKey,
+        idPersona: w.idPersona,
+        nombre: w.nombre,
+        grupo: w.grupo,
+        dias: {},
+        hNormal: 0,
+        hExtras: 0,
+        dominical: 0
+      };
+
       dates.forEach(d => {
-        const rec = idx.get(`${nombre}__${fmtDate(d)}`);
+        const rec = idx.get(`${w.workerKey}__${fmtDate(d)}`);
         const feriado = isHoliday(d);
         const sinMarcaSemana = !rec && isWeekday(d) && !feriado;
         const alerta = rec?.alerta || (sinMarcaSemana ? 'X' : '');
         const jornal = rec?.jornal ?? 0;
         const hs = rec?.hs ?? 0;
-        out.dias[fmtDate(d)] = { jornal, hs, feriado, alerta };
+
+        out.dias[fmtDate(d)] = {
+          jornal,
+          hs,
+          feriado,
+          alerta,
+          detalle: rec?.detalle || ''
+        };
+
         out.hNormal += jornal;
         out.hExtras += hs;
         if (isSunday(d)) out.dominical += hs;
       });
+
       return out;
     });
+
     return { dates, rows };
   }
 
-  function nameClassByValue(v){ return getGroupByWorker(v) === 'PLANILLA' ? 'planilla-name' : 'rrhh-name'; }
+  function handleRowsLoaded(rows) {
+    state.rawRows = rows;
+    state.map = detectColumns(Object.keys(rows[0] || {}));
 
-  function renderTable(container, headers, rows){
-    container.innerHTML = '<table><thead><tr>' + headers.map((h,i) => `<th class="${i===0?'name-col':''}">${h}</th>`).join('') + '</tr></thead><tbody>' + rows.map(r => '<tr>' + r.map((v,i) => `<td class="${i===0?'name-col ' + nameClassByValue(v):''} ${typeof v === 'number' ? 'num' : ''}">${v ?? ''}</td>`).join('') + '</tr>').join('') + '</tbody></table>';
+    els.columnInfo.textContent =
+      `Detectado → ID: ${state.map.idPersona || '—'} | Nombre: ${state.map.nombre || '—'} | Hora: ${state.map.hora || '—'} | Estado: ${state.map.estado || '—'}`;
+
+    state.cleanRows = buildRows(rows, state.map);
+
+    if (!state.cleanRows.length) {
+      throw new Error('No se obtuvieron registros válidos en el archivo cargado.');
+    }
+
+    const ds = state.cleanRows.map(r => stamp(r.fecha));
+    els.startDate.value = fmtInput(new Date(Math.min(...ds)));
+    els.endDate.value = fmtInput(new Date(Math.max(...ds)));
+
+    setStatus(`Archivo listo: ${state.cleanRows.length} registros válidos`, 'ok');
+    processNow();
   }
 
-  function renderAll(){
-    renderTable(els.resumen, ['Nombre','Fecha','Día','Primera entrada','Última salida','Horas brutas','Horas netas','Horas decimal','Jornal','H.S.','Alerta'], state.summaryRows.slice(0,1200).map(r => [r.nombre, fmtDate(r.fecha), weekdayName(r.fecha), r.primeraEntrada ? fmtTime(r.primeraEntrada) : '', r.ultimaSalida ? fmtTime(r.ultimaSalida) : '', displayNum(r.horasBrutas), displayNum(r.horasNetas), displayNum(r.horasDecimal), displayNum(r.jornal), displayNum(r.hs), r.alerta]));
-    renderTable(els.bd, ['Nombre','Fecha','Día','Hora','Estado'], state.cleanRows.slice(0,1200).map(r => [r.nombre, fmtDate(r.fecha), weekdayName(r.fecha), fmtTime(r.hora), r.estado]));
-    const {dates, rows} = state.tareo;
-    let html = '<table><thead><tr><th class="name-col" rowspan="2">Colaboradores</th>' + dates.map(d => `<th colspan="2" class="day-head day-start">${fmtDate(d)}<span class="day-name">${weekdayName(d)}</span></th>`).join('') + '<th rowspan="2" class="totals-head totals-start">H.NORMAL</th><th rowspan="2" class="totals-head">H.EXTRAS</th><th rowspan="2" class="totals-head">DOMINICAL</th></tr><tr>' + dates.map((d, idx) => `<th class="sub-day-start ${idx===0?'day-start':''}">JORNAL</th><th>H.S.</th>`).join('') + '</tr></thead><tbody>';
+  function renderTable(container, headers, rows, options = {}) {
+    const nameColIndex = Number.isInteger(options.nameColIndex) ? options.nameColIndex : 0;
+
+    container.innerHTML =
+      '<table><thead><tr>' +
+      headers.map((h, i) => `<th class="${i === 0 ? 'name-col' : ''}">${escapeHtml(h)}</th>`).join('') +
+      '</tr></thead><tbody>' +
+      rows.map(r =>
+        '<tr>' +
+        r.map((v, i) => {
+          const value = v == null ? '' : v;
+          const isNum = typeof value === 'number';
+          const className = [
+            i === 0 ? 'name-col' : '',
+            i === nameColIndex ? (getGroupByWorker(String(r[nameColIndex] ?? '')) === 'PLANILLA' ? 'planilla-name' : 'rrhh-name') : '',
+            isNum ? 'num' : ''
+          ].join(' ').trim();
+          return `<td class="${className}">${escapeHtml(isNum ? displayNum(value) : value)}</td>`;
+        }).join('') +
+        '</tr>'
+      ).join('') +
+      '</tbody></table>';
+  }
+
+  function renderAll() {
+    renderTable(
+      els.resumen,
+      ['Nombre','ID','Fecha','Día','Marcas','Limpias','Sesiones','Primera entrada','Última salida','Horas brutas','Horas netas','Horas decimal','Jornal','H.S.','Alerta','Detalle'],
+      state.summaryRows.slice(0, 2000).map(r => [
+        r.nombre,
+        r.idPersona || '',
+        fmtDate(r.fecha),
+        weekdayName(r.fecha),
+        r.marcas,
+        r.marcasLimpias,
+        r.sesiones,
+        r.primeraEntrada ? fmtTime(r.primeraEntrada) : '',
+        r.ultimaSalida ? fmtTime(r.ultimaSalida) : '',
+        displayNum(r.horasBrutas),
+        displayNum(r.horasNetas),
+        displayNum(r.horasDecimal),
+        displayNum(r.jornal),
+        displayNum(r.hs),
+        r.alerta,
+        r.detalle
+      ])
+    );
+
+    renderTable(
+      els.bd,
+      ['Nombre','ID','Fecha','Día','Hora','Estado','Tipo'],
+      state.cleanRows.slice(0, 3000).map(r => [
+        r.nombre,
+        r.idPersona || '',
+        fmtDate(r.fecha),
+        weekdayName(r.fecha),
+        fmtTime(r.hora),
+        r.estado,
+        r.tipo || ''
+      ])
+    );
+
+    renderTable(
+      els.anomalias,
+      ['Nombre','ID','Fecha','Día','Alerta','Detalle','Marcas','Sesiones','Jornal','H.S.'],
+      state.anomalyRows.slice(0, 3000).map(r => [
+        r.nombre,
+        r.idPersona || '',
+        fmtDate(r.fecha),
+        weekdayName(r.fecha),
+        r.alerta,
+        r.detalle,
+        r.marcas,
+        r.sesiones,
+        displayNum(r.jornal),
+        displayNum(r.hs)
+      ])
+    );
+
+    const { dates, rows } = state.tareo;
+
+    let html = '<table><thead><tr>';
+    html += '<th class="name-col" rowspan="2">Colaboradores</th>';
+    html += dates.map(d =>
+      `<th colspan="2" class="day-head day-start">${escapeHtml(fmtDate(d))}<span class="day-name">${escapeHtml(weekdayName(d))}</span></th>`
+    ).join('');
+    html += '<th rowspan="2" class="totals-head totals-start">H.NORMAL</th>';
+    html += '<th rowspan="2" class="totals-head">H.EXTRAS</th>';
+    html += '<th rowspan="2" class="totals-head">DOMINICAL</th>';
+    html += '</tr><tr>';
+    html += dates.map((d, idx) =>
+      `<th class="sub-day-start ${idx === 0 ? 'day-start' : ''}">JORNAL</th><th>H.S.</th>`
+    ).join('');
+    html += '</tr></thead><tbody>';
+
     rows.forEach(r => {
-      html += `<tr><td class="name-col ${r.grupo === 'PLANILLA' ? 'planilla-name' : 'rrhh-name'}">${r.nombre}</td>`;
+      html += `<tr><td class="name-col ${r.grupo === 'PLANILLA' ? 'planilla-name' : 'rrhh-name'}">${escapeHtml(r.nombre)}</td>`;
+
       dates.forEach((d, idx) => {
-        const k = fmtDate(d), v = r.dias[k] || {jornal:0, hs:0, feriado:false, alerta:''};
-        const jornalText = v.alerta ? 'X' : displayNum(v.jornal);
-        const hsText = v.alerta ? '' : displayNum(v.hs);
-        html += `<td class="num ${idx===0?'day-start sub-day-start':''} ${v.alerta ? 'alert-cell' : ''}">${jornalText}</td><td class="num ${v.alerta ? 'alert-cell' : ''}">${hsText}</td>`;
+        const k = fmtDate(d);
+        const v = r.dias[k] || { jornal: 0, hs: 0, feriado: false, alerta: '', detalle: '' };
+        const journalText = v.alerta === 'X' ? 'X' : displayNum(v.jornal);
+        const hsText = v.alerta === 'X' ? '' : displayNum(v.hs);
+        const cellClass = v.alerta ? 'alert-cell' : '';
+        const title = escapeHtml(v.detalle || (v.alerta === 'X' ? 'Sin marcas válidas' : ''));
+
+        html += `<td class="num ${idx === 0 ? 'day-start sub-day-start' : ''} ${cellClass}" title="${title}">${escapeHtml(journalText)}</td>`;
+        html += `<td class="num ${cellClass}" title="${title}">${escapeHtml(hsText)}</td>`;
       });
-      html += `<td class="num totals-cell totals-start">${displayNum(r.hNormal)}</td><td class="num totals-cell">${displayNum(r.hExtras)}</td><td class="num totals-cell">${displayNum(r.dominical)}</td></tr>`;
+
+      html += `<td class="num totals-cell totals-start">${escapeHtml(displayNum(r.hNormal))}</td>`;
+      html += `<td class="num totals-cell">${escapeHtml(displayNum(r.hExtras))}</td>`;
+      html += `<td class="num totals-cell">${escapeHtml(displayNum(r.dominical))}</td>`;
+      html += '</tr>';
     });
+
     html += '</tbody></table>';
     els.tareo.innerHTML = html;
   }
 
-  function updateStats(sourceRows){ els.statRows.textContent = sourceRows.length; els.statWorkers.textContent = unique(sourceRows.map(r => r.nombre)).length; els.statDays.textContent = state.tareo.dates.length; els.statSummary.textContent = state.summaryRows.length; }
+  function updateStats(sourceRows, workers) {
+    els.statRows.textContent = sourceRows.length;
+    els.statWorkers.textContent = workers.length;
+    els.statDays.textContent = state.tareo.dates.length;
+    els.statSummary.textContent = state.summaryRows.length;
+  }
 
-  function workbookOut(){
+  function buildTareoSheetData() {
     const row1 = ['Colaboradores'];
     const row2 = [''];
-    state.tareo.dates.forEach(d => { row1.push(`${fmtDate(d)} ${weekdayName(d)}`, ''); row2.push('JORNAL','H.S.'); });
-    row1.push('H.NORMAL','H.EXTRAS','DOMINICAL');
-    row2.push('','','');
+
+    state.tareo.dates.forEach(d => {
+      row1.push(`${fmtDate(d)} ${weekdayName(d)}`, '');
+      row2.push('JORNAL', 'H.S.');
+    });
+
+    row1.push('H.NORMAL', 'H.EXTRAS', 'DOMINICAL');
+    row2.push('', '', '');
+
     const data = [row1, row2];
+
     state.tareo.rows.forEach(r => {
       const row = [r.nombre];
       state.tareo.dates.forEach(d => {
-        const k = fmtDate(d), cell = r.dias[k] || {jornal:0, hs:0, alerta:'', feriado:false};
-        row.push(cell.alerta ? 0 : (cell.jornal ?? 0), cell.alerta ? 0 : (cell.hs ?? 0));
+        const k = fmtDate(d);
+        const cell = r.dias[k] || { jornal: 0, hs: 0, alerta: '' };
+        row.push(cell.alerta === 'X' ? 0 : (cell.jornal ?? 0));
+        row.push(cell.alerta === 'X' ? 0 : (cell.hs ?? 0));
       });
       row.push(r.hNormal, r.hExtras, r.dominical);
       data.push(row);
     });
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    ws['!merges'] = [];
+
+    return data;
+  }
+
+  function workbookOut() {
+    const wb = XLSX.utils.book_new();
+
+    const tareoData = buildTareoSheetData();
+    const wsTareo = XLSX.utils.aoa_to_sheet(tareoData);
+    wsTareo['!merges'] = [];
+
     let c = 1;
-    state.tareo.dates.forEach(() => { ws['!merges'].push({s:{r:0,c},e:{r:0,c:c+1}}); c += 2; });
-    ws['!merges'].push({s:{r:0,c:0},e:{r:1,c:0}});
+    state.tareo.dates.forEach(() => {
+      wsTareo['!merges'].push({ s: { r: 0, c }, e: { r: 0, c: c + 1 } });
+      c += 2;
+    });
+
+    wsTareo['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 1, c: 0 } });
+
     const start = 1 + state.tareo.dates.length * 2;
-    ws['!merges'].push({s:{r:0,c:start},e:{r:1,c:start}});
-    ws['!merges'].push({s:{r:0,c:start+1},e:{r:1,c:start+1}});
-    ws['!merges'].push({s:{r:0,c:start+2},e:{r:1,c:start+2}});
-    for (let r = 2; r < data.length; r++) {
-      for (let col = 1; col < data[r].length; col++) {
-        const ref = XLSX.utils.encode_cell({r,c:col});
-        if (ws[ref] && typeof ws[ref].v === 'number') ws[ref].z = '0.##';
+    wsTareo['!merges'].push({ s: { r: 0, c: start }, e: { r: 1, c: start } });
+    wsTareo['!merges'].push({ s: { r: 0, c: start + 1 }, e: { r: 1, c: start + 1 } });
+    wsTareo['!merges'].push({ s: { r: 0, c: start + 2 }, e: { r: 1, c: start + 2 } });
+
+    for (let r = 2; r < tareoData.length; r++) {
+      for (let col = 1; col < tareoData[r].length; col++) {
+        const ref = XLSX.utils.encode_cell({ r, c: col });
+        if (wsTareo[ref] && typeof wsTareo[ref].v === 'number') wsTareo[ref].z = '0.##';
       }
     }
-    ws['!cols'] = [{wch:34}, ...Array(data[0].length - 1).fill({wch:10})];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'TAREO');
+
+    wsTareo['!cols'] = [{ wch: 34 }, ...Array(tareoData[0].length - 1).fill({ wch: 10 })];
+    XLSX.utils.book_append_sheet(wb, wsTareo, 'TAREO');
+
+    const resumenData = [
+      ['Nombre','ID','Fecha','Día','Marcas','Limpias','Sesiones','Primera entrada','Última salida','Horas brutas','Horas netas','Horas decimal','Jornal','H.S.','Alerta','Detalle'],
+      ...state.summaryRows.map(r => [
+        r.nombre,
+        r.idPersona || '',
+        fmtDate(r.fecha),
+        weekdayName(r.fecha),
+        r.marcas,
+        r.marcasLimpias,
+        r.sesiones,
+        r.primeraEntrada ? fmtTime(r.primeraEntrada) : '',
+        r.ultimaSalida ? fmtTime(r.ultimaSalida) : '',
+        r.horasBrutas ?? '',
+        r.horasNetas ?? '',
+        r.horasDecimal ?? '',
+        r.jornal ?? '',
+        r.hs ?? '',
+        r.alerta,
+        r.detalle
+      ])
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumenData), 'RESUMEN');
+
+    const anomaliasData = [
+      ['Nombre','ID','Fecha','Día','Alerta','Detalle','Marcas','Sesiones','Jornal','H.S.'],
+      ...state.anomalyRows.map(r => [
+        r.nombre,
+        r.idPersona || '',
+        fmtDate(r.fecha),
+        weekdayName(r.fecha),
+        r.alerta,
+        r.detalle,
+        r.marcas,
+        r.sesiones,
+        r.jornal ?? '',
+        r.hs ?? ''
+      ])
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(anomaliasData), 'ANOMALIAS');
+
     return wb;
   }
 
-  function processNow(){
+  function processNow() {
     clearError();
+
     try {
       if (!state.rawRows.length) throw new Error('Primero carga un archivo o un ejemplo.');
+
       const startDate = els.startDate.value ? new Date(els.startDate.value + 'T00:00:00') : new Date();
       const endDate = els.endDate.value ? new Date(els.endDate.value + 'T00:00:00') : new Date();
-      const {summaryRows, effectiveRows} = buildSummary(state.cleanRows, startDate, endDate);
+
+      if (startDate > endDate) throw new Error('La fecha de inicio no puede ser mayor que la fecha fin.');
+
+      const { summaryRows, effectiveRows, workers } = buildSummary(state.cleanRows, startDate, endDate);
+
       state.summaryRows = summaryRows;
-      state.tareo = buildTareo(summaryRows, effectiveRows, startDate, endDate);
-      renderAll(); updateStats(effectiveRows); setStatus(`Procesado correctamente · ${summaryRows.length} filas resumen`, 'ok');
-      els.downloadXlsxBtn.disabled = !summaryRows.length; els.downloadCsvBtn.disabled = !summaryRows.length;
-    } catch (err) { setStatus('Ocurrió un error', 'error'); showError(err.message || 'No se pudo procesar el archivo.'); }
+      state.anomalyRows = summaryRows.filter(r => r.alerta || r.anomalias > 0);
+      state.workers = workers;
+      state.tareo = buildTareo(summaryRows, workers, startDate, endDate);
+
+      renderAll();
+      updateStats(effectiveRows, workers);
+
+      setStatus(`Procesado correctamente · ${summaryRows.length} filas resumen`, 'ok');
+      els.downloadXlsxBtn.disabled = !summaryRows.length;
+      els.downloadCsvBtn.disabled = !summaryRows.length;
+    } catch (err) {
+      setStatus('Ocurrió un error', 'error');
+      showError(err.message || 'No se pudo procesar el archivo.');
+    }
   }
 
-  function handleWorkbook(file){
-    clearError(); setFileName(file?.name || 'Ningún archivo seleccionado');
+  function handleWorkbook(file) {
+    clearError();
+    setFileName(file?.name || 'Ningún archivo seleccionado');
+
     const reader = new FileReader();
     reader.onload = e => {
       try {
-        state.workbook = XLSX.read(e.target.result, { type:'array', cellDates:true, raw:true });
+        state.workbook = XLSX.read(e.target.result, { type: 'array', cellDates: true, raw: true });
         state.fileName = (file.name || 'tareo').replace(/\.(xlsx|xls)$/i, '') + '_tareo.xlsx';
+
         const name = state.workbook.SheetNames[0];
         const ws = state.workbook.Sheets[name];
-        const rows = XLSX.utils.sheet_to_json(ws, { defval:'', raw:true, cellDates:true });
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true, cellDates: true });
+
         if (!rows.length) throw new Error('La hoja seleccionada no tiene datos.');
+
         handleRowsLoaded(rows);
       } catch (err) {
         setStatus('No se pudo leer el Excel', 'error');
         showError(err.message || 'Revisa si el archivo está dañado o no es un Excel válido.');
       }
     };
+
     reader.readAsArrayBuffer(file);
   }
 
-  function loadSample(){
+  function loadSample() {
     const rows = [
-      { Nombre:'Lamper Torres, Jose Ali', Hora:'07/04/2026 07:30', 'Estado de asistencia':'Registro de entrada' },
-      { Nombre:'Lamper Torres, Jose Ali', Hora:'07/04/2026 16:00', 'Estado de asistencia':'Registro de salida' },
-      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'08/04/2026 07:50', 'Estado de asistencia':'Registro de entrada' },
-      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'08/04/2026 16:00', 'Estado de asistencia':'Registro de salida' },
-      { Nombre:'Cordova Mori, Adriel', Hora:'09/04/2026 08:00', 'Estado de asistencia':'Registro de entrada' },
-      { Nombre:'Cordova Mori, Adriel', Hora:'09/04/2026 19:00', 'Estado de asistencia':'Registro de salida' }
+      { 'ID de persona': '00000027', Nombre: 'Lamper Torres, Jose Ali', Hora: '07/04/2026 07:30', 'Estado de asistencia': 'Registro de entrada' },
+      { 'ID de persona': '00000027', Nombre: 'Lamper Torres, Jose Ali', Hora: '07/04/2026 16:00', 'Estado de asistencia': 'Registro de salida' },
+
+      { 'ID de persona': '00000028', Nombre: 'Rincon Ramirez, Giovanni José', Hora: '08/04/2026 07:01', 'Estado de asistencia': 'Registro de entrada' },
+      { 'ID de persona': '00000028', Nombre: 'Rincon Ramirez, Giovanni José', Hora: '08/04/2026 16:28', 'Estado de asistencia': 'Registro de salida' },
+      { 'ID de persona': '00000028', Nombre: 'Rincon Ramirez, Giovanni José', Hora: '08/04/2026 16:29', 'Estado de asistencia': 'Registro de salida' },
+
+      { 'ID de persona': '00000035', Nombre: 'Cordova Mori, Adriel', Hora: '09/04/2026 08:00', 'Estado de asistencia': 'Registro de entrada' },
+      { 'ID de persona': '00000035', Nombre: 'Cordova Mori, Adriel', Hora: '09/04/2026 19:00', 'Estado de asistencia': 'Registro de salida' },
+
+      { 'ID de persona': '00000033', Nombre: 'Valderrama Mozombite, Gustavo', Hora: '10/04/2026 06:30', 'Estado de asistencia': 'Registro de entrada' },
+      { 'ID de persona': '00000033', Nombre: 'Valderrama Mozombite, Gustavo', Hora: '10/04/2026 16:10', 'Estado de asistencia': 'Registro de salida' },
+      { 'ID de persona': '00000033', Nombre: 'Valderrama Mozombite, Gustavo', Hora: '10/04/2026 16:11', 'Estado de asistencia': 'Registro de salida' }
     ];
-    state.fileName = 'tareo_tabla.xlsx'; setFileName('Ejemplo cargado'); handleRowsLoaded(rows); setStatus('Ejemplo cargado', 'ok');
+
+    state.fileName = 'tareo_tabla.xlsx';
+    setFileName('Ejemplo cargado');
+    handleRowsLoaded(rows);
+    setStatus('Ejemplo cargado', 'ok');
   }
 
-  function downloadXlsx(){
+  function downloadXlsx() {
     try {
       const wb = workbookOut();
       XLSX.writeFile(wb, state.fileName);
@@ -425,34 +1017,62 @@
     }
   }
 
-  function downloadCsv(){
-    const row1 = ['Colaboradores'];
-    const row2 = [''];
-    state.tareo.dates.forEach(d => { row1.push(`${fmtDate(d)} ${weekdayName(d)}`, ''); row2.push('JORNAL','H.S.'); });
-    row1.push('H.NORMAL','H.EXTRAS','DOMINICAL');
-    row2.push('','','');
-    const data = [row1, row2];
-    state.tareo.rows.forEach(r => {
-      const row = [r.nombre];
-      state.tareo.dates.forEach(d => {
-        const k = fmtDate(d), cell = r.dias[k] || {jornal:0, hs:0, alerta:''};
-        row.push(cell.alerta ? 0 : (cell.jornal ?? 0), cell.alerta ? 0 : (cell.hs ?? 0));
-      });
-      row.push(r.hNormal, r.hExtras, r.dominical); data.push(row);
-    });
-    const ws = XLSX.utils.aoa_to_sheet(data); const csv = XLSX.utils.sheet_to_csv(ws); const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'tareo.csv'; a.click();
+  function downloadCsv() {
+    const data = buildTareoSheetData();
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'tareo.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
-  els.themeBtn.addEventListener('click', () => document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
-  els.fileInput.addEventListener('change', e => e.target.files[0] && handleWorkbook(e.target.files[0]));
+  els.themeBtn.addEventListener('click', () => {
+    document.documentElement.setAttribute(
+      'data-theme',
+      document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'
+    );
+  });
+
+  els.fileInput.addEventListener('change', e => {
+    const f = e.target.files?.[0];
+    if (f) handleWorkbook(f);
+  });
+
   els.processBtn.addEventListener('click', processNow);
   els.downloadXlsxBtn.addEventListener('click', downloadXlsx);
   els.downloadCsvBtn.addEventListener('click', downloadCsv);
   els.sampleBtn.addEventListener('click', loadSample);
-  ['dragenter','dragover'].forEach(ev => els.dropzone.addEventListener(ev, e => { e.preventDefault(); els.dropzone.classList.add('drag'); }));
-  ['dragleave','drop'].forEach(ev => els.dropzone.addEventListener(ev, e => { e.preventDefault(); els.dropzone.classList.remove('drag'); }));
-  els.dropzone.addEventListener('drop', e => { const f = e.dataTransfer.files?.[0]; if (f) handleWorkbook(f); });
-  document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => { document.querySelectorAll('.tab').forEach(x => x.classList.remove('active')); btn.classList.add('active'); ['resumen','tareo','bd'].forEach(k => document.getElementById('tab-' + k).classList.add('hidden')); document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden'); }));
+
+  ['dragenter','dragover'].forEach(ev => {
+    els.dropzone.addEventListener(ev, e => {
+      e.preventDefault();
+      els.dropzone.classList.add('drag');
+    });
+  });
+
+  ['dragleave','drop'].forEach(ev => {
+    els.dropzone.addEventListener(ev, e => {
+      e.preventDefault();
+      els.dropzone.classList.remove('drag');
+    });
+  });
+
+  els.dropzone.addEventListener('drop', e => {
+    const f = e.dataTransfer.files?.[0];
+    if (f) handleWorkbook(f);
+  });
+
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      btn.classList.add('active');
+      ['resumen','tareo','bd','anomalias'].forEach(k => document.getElementById('tab-' + k).classList.add('hidden'));
+      document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+    });
+  });
 })();
 </script>
 </body>
