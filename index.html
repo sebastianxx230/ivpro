@@ -13,12 +13,12 @@
     :root,[data-theme="light"]{
       --bg:#f7f6f2;--panel:#ffffff;--panel-2:#f3f1eb;--text:#1f1f1a;--muted:#6d685f;--line:#ddd6cc;
       --primary:#0d6870;--primary-soft:#e8f3f4;--ok:#4a7a2d;--danger:#ad4a55;--shadow:0 8px 24px rgba(25,24,22,.05);
-      --planilla:#4c8fce;--planilla-soft:#e8f4ff;
+      --planilla:#4c8fce;--planilla-soft:#e8f4ff;--day-sep:#c9d7e8;--totals:#eef2f6;
     }
     [data-theme="dark"]{
       --bg:#171614;--panel:#1d1c19;--panel-2:#26231f;--text:#f2eee7;--muted:#aba395;--line:#3b3630;
       --primary:#63a8b0;--primary-soft:#21383b;--ok:#88ca5f;--danger:#df7d86;--shadow:0 12px 28px rgba(0,0,0,.22);
-      --planilla:#4c8fce;--planilla-soft:#17314d;
+      --planilla:#4c8fce;--planilla-soft:#244760;--day-sep:#3e5870;--totals:#232a31;
     }
     *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.45}
     button,input,select{font:inherit}
@@ -50,6 +50,11 @@
     [data-theme="dark"] .rrhh-name{background:#23211d !important;color:#f2eee7 !important}
     [data-theme="dark"] .group-row td{background:#1f3b3f !important;color:#8fd7df !important}
     [data-theme="dark"] .table-box thead th,[data-theme="dark"] .table-box .name-col{background:#1f1d19 !important;color:#f2eee7 !important}
+    .day-head{min-width:92px;background:linear-gradient(180deg,color-mix(in srgb,var(--primary) 11%, var(--panel)),var(--panel)) !important;border-left:2px solid var(--day-sep)}
+    .day-name{display:block;margin-top:4px;font-size:.78rem;font-weight:600;color:var(--muted)}
+    .sub-day-start,.day-start{border-left:2px solid var(--day-sep) !important}
+    .totals-head,.totals-cell{background:var(--totals) !important}
+    .totals-start{border-left:3px solid var(--line) !important}
     .note{padding:10px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
     .dropzone{border:1.5px dashed var(--line);background:var(--panel-2);border-radius:14px;padding:12px}.dropzone.drag{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 8%, var(--panel-2))}
     @media (max-width:1320px){.top-filters-grid{grid-template-columns:1fr 1fr 1fr}.header-actions{justify-content:flex-start}}
@@ -83,7 +88,7 @@
           </div>
         </div>
       </div>
-      <label class="field"><span>T. Contra.</span><select id="lineFilter"><option value="">Todos</option><option value="PLANILLA">PLANILLA</option><option value="RRHH">RRHH</option></select></label>
+      <label class="field"><span>Filtro</span><select id="lineFilter"><option value="">Todos</option><option value="PLANILLA">PLANILLA</option><option value="RRHH">RRHH</option></select></label>
       <label class="field"><span>Inicio</span><input id="startDate" type="date"></label>
       <label class="field"><span>Fin</span><input id="endDate" type="date"></label>
     </div>
@@ -98,7 +103,7 @@
         <div id="statusBadge" class="pill">Sin archivo cargado</div>
         <div id="columnInfo" class="small">Aún no se detectaron columnas.</div>
       </div>
-      <div class="small">Filtro solo por tipo de contratación: planilla o rrhh.</div>
+      <div class="small">Excel de descarga: solo datos, listo para copiar y pegar.</div>
     </div>
   </section>
 
@@ -121,14 +126,14 @@
     <div id="tab-resumen" class="table-box"></div>
     <div id="tab-tareo" class="table-box hidden"></div>
     <div id="tab-bd" class="table-box hidden"></div>
-    <div class="note">Planilla en celeste claro y RRHH en blanco.</div>
+    <div class="note">La tabla muestra fecha, día y una separación más clara por cada bloque diario.</div>
   </section>
 </div>
 
 <script>
 (() => {
   const $ = s => document.querySelector(s);
-  const state = { workbook:null, rawRows:[], cleanRows:[], summaryRows:[], tareo:{dates:[],rows:[],groups:[]}, fileName:'tareo_procesado.xlsx', map:null };
+  const state = { workbook:null, rawRows:[], cleanRows:[], summaryRows:[], tareo:{dates:[],rows:[],groups:[]}, fileName:'tareo_datos_para_pegar.xlsx', map:null };
   const els = {
     fileInput:$('#fileInput'), fileName:$('#fileName'), dropzone:$('#dropzone'), themeBtn:$('#themeBtn'), errorBox:$('#errorBox'), statusBadge:$('#statusBadge'), columnInfo:$('#columnInfo'),
     lineFilter:$('#lineFilter'), startDate:$('#startDate'), endDate:$('#endDate'), processBtn:$('#processBtn'), downloadXlsxBtn:$('#downloadXlsxBtn'), downloadCsvBtn:$('#downloadCsvBtn'), sampleBtn:$('#sampleBtn'),
@@ -136,14 +141,9 @@
   };
 
   const PLANILLA_SET = new Set([
-    'lamper torres jose ali',
-    'munoz garcia miguel angel',
-    'rincon ramirez giovanni jose',
-    'rubina reynoso nilton aquiles',
-    'saldana alanya carlos alberto',
-    'valderrama alva sergio angel',
-    'valderrama mozombite gustavo'
+    'lamper torres jose ali','munoz garcia miguel angel','rincon ramirez giovanni jose','rubina reynoso nilton aquiles','saldana alanya carlos alberto','valderrama alva sergio angel','valderrama mozombite gustavo'
   ]);
+  const DAYS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 
   const pad = n => String(n).padStart(2,'0');
   const normalize = v => String(v ?? '').trim().toLowerCase();
@@ -151,22 +151,14 @@
   const fmtDate = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
   const fmtInput = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   const fmtTime = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const weekdayName = d => DAYS[d.getDay()];
   const dayOnly = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const stamp = d => dayOnly(d).getTime();
   const isSunday = d => d.getDay() === 0;
   const unique = arr => [...new Set(arr.filter(v => String(v ?? '') !== ''))];
 
-  function displayNum(v){
-    if (v == null || v === '') return '';
-    const n = Number(v);
-    if (!isFinite(n)) return v;
-    return n.toFixed(1).replace(/\.0$/, '');
-  }
-
-  function getGroupByWorker(name){
-    return PLANILLA_SET.has(normalizeSimple(name)) ? 'PLANILLA' : 'RRHH';
-  }
-
+  function displayNum(v){ if (v == null || v === '') return ''; const n = Number(v); return isFinite(n) ? n.toFixed(1).replace(/\.0$/, '') : v; }
+  function getGroupByWorker(name){ return PLANILLA_SET.has(normalizeSimple(name)) ? 'PLANILLA' : 'RRHH'; }
   function showError(msg){ els.errorBox.textContent = msg; els.errorBox.classList.remove('hidden'); }
   function clearError(){ els.errorBox.classList.add('hidden'); els.errorBox.textContent = ''; }
   function setStatus(text, tone=''){ els.statusBadge.className = 'pill ' + tone; els.statusBadge.textContent = text; }
@@ -174,22 +166,13 @@
 
   function parseExcelDate(value){
     if (value instanceof Date && !isNaN(value)) return value;
-    if (typeof value === 'number') {
-      const p = XLSX.SSF.parse_date_code(value);
-      if (p) return new Date(p.y, p.m-1, p.d, p.H || 0, p.M || 0, p.S || 0);
-    }
-    const t = String(value ?? '').trim();
-    if (!t) return null;
+    if (typeof value === 'number') { const p = XLSX.SSF.parse_date_code(value); if (p) return new Date(p.y, p.m-1, p.d, p.H || 0, p.M || 0, p.S || 0); }
+    const t = String(value ?? '').trim(); if (!t) return null;
     const isoLike = t.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
     if (isoLike) return new Date(Number(isoLike[1]), Number(isoLike[2])-1, Number(isoLike[3]), Number(isoLike[4]||0), Number(isoLike[5]||0), Number(isoLike[6]||0));
     const dmy = t.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-    if (dmy) {
-      const y = dmy[3].length === 2 ? Number('20' + dmy[3]) : Number(dmy[3]);
-      return new Date(y, Number(dmy[2]) - 1, Number(dmy[1]), Number(dmy[4] || 0), Number(dmy[5] || 0), Number(dmy[6] || 0));
-    }
-    const direct = new Date(t);
-    if (!isNaN(direct)) return direct;
-    return null;
+    if (dmy) { const y = dmy[3].length === 2 ? Number('20' + dmy[3]) : Number(dmy[3]); return new Date(y, Number(dmy[2]) - 1, Number(dmy[1]), Number(dmy[4] || 0), Number(dmy[5] || 0), Number(dmy[6] || 0)); }
+    const direct = new Date(t); return isNaN(direct) ? null : direct;
   }
 
   function detectColumns(headers){
@@ -214,15 +197,10 @@
     }).filter(Boolean).sort((a,b) => a.fila - b.fila || a.hora - b.hora);
   }
 
-  function workerOrder(cleanRows){
-    const seen = new Set(), out = [];
-    cleanRows.forEach(r => { if (!seen.has(r.nombre)) { seen.add(r.nombre); out.push(r.nombre); } });
-    return out;
-  }
+  function workerOrder(cleanRows){ const seen = new Set(), out = []; cleanRows.forEach(r => { if (!seen.has(r.nombre)) { seen.add(r.nombre); out.push(r.nombre); } }); return out; }
 
   function handleRowsLoaded(rows){
-    state.rawRows = rows;
-    state.map = detectColumns(Object.keys(rows[0] || {}));
+    state.rawRows = rows; state.map = detectColumns(Object.keys(rows[0] || {}));
     els.columnInfo.textContent = `Detectado → Nombre: ${state.map.nombre || '—'} | Hora: ${state.map.hora || '—'} | Estado: ${state.map.estado || '—'}`;
     state.cleanRows = buildRows(rows, state.map);
     if (!state.cleanRows.length) throw new Error('No se obtuvieron registros válidos en el archivo cargado.');
@@ -255,25 +233,18 @@
       const jornal = decimal == null ? null : Math.min(normalCap, decimal);
       const hs = decimal == null ? null : Math.max(0, decimal - normalCap);
       return { nombre:g.nombre, fecha:g.fecha, grupo:g.grupo, primeraEntrada:primera, ultimaSalida:ultima, horasBrutas:brutas, horasNetas:netas, horasDecimal:decimal, jornal, hs, dominical:isSunday(g.fecha) ? (jornal || 0) : 0, order:g.order };
-    }).sort((a,b) => a.order - b.order || a.fecha - b.fecha);
+    }).sort((a,b) => a.grupo.localeCompare(b.grupo) || a.order - b.order || a.fecha - b.fecha);
     return { filteredRows, summaryRows, effectiveRows };
   }
 
   function buildTareo(summaryRows, cleanRows, startDate, endDate, groupFilter){
-    const dates = [];
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) dates.push(new Date(d));
+    const dates = []; for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) dates.push(new Date(d));
     const baseRows = groupFilter ? cleanRows.filter(r => r.grupo === groupFilter) : cleanRows;
-    const orderByWorker = workerOrder(baseRows);
+    const ordered = ['PLANILLA','RRHH'].flatMap(g => workerOrder(baseRows.filter(r => r.grupo === g)));
     const idx = new Map(summaryRows.map(r => [`${r.nombre}__${fmtDate(r.fecha)}`, r]));
-    const rows = orderByWorker.map(nombre => {
-      const grupo = getGroupByWorker(nombre);
-      const out = { nombre, grupo, dias:{}, hNormal:0, hExtras:0, hExtrasAnterior:0, dominical:0 };
-      dates.forEach(d => {
-        const rec = idx.get(`${nombre}__${fmtDate(d)}`);
-        const jornal = rec?.jornal ?? 0, hs = rec?.hs ?? 0;
-        out.dias[fmtDate(d)] = { jornal, hs };
-        out.hNormal += jornal; out.hExtras += hs; if (isSunday(d)) out.dominical += jornal;
-      });
+    const rows = ordered.map(nombre => {
+      const grupo = getGroupByWorker(nombre); const out = { nombre, grupo, dias:{}, hNormal:0, hExtras:0, dominical:0 };
+      dates.forEach(d => { const rec = idx.get(`${nombre}__${fmtDate(d)}`); const jornal = rec?.jornal ?? 0, hs = rec?.hs ?? 0; out.dias[fmtDate(d)] = { jornal, hs }; out.hNormal += jornal; out.hExtras += hs; if (isSunday(d)) out.dominical += jornal; });
       return out;
     });
     const groups = ['PLANILLA','RRHH'].filter(g => !groupFilter || g === groupFilter).map(grupo => ({ grupo, rows: rows.filter(r => r.grupo === grupo) })).filter(g => g.rows.length);
@@ -287,107 +258,39 @@
   }
 
   function renderAll(){
-    renderTable(els.resumen, ['Nombre','Fecha','T. Contra.','Primera entrada','Última salida','Horas brutas','Horas netas','Horas decimal','Jornal','H.S.'], state.summaryRows.slice(0,1200).map(r => [r.nombre, fmtDate(r.fecha), r.grupo, r.primeraEntrada ? fmtTime(r.primeraEntrada) : '', r.ultimaSalida ? fmtTime(r.ultimaSalida) : '', displayNum(r.horasBrutas), displayNum(r.horasNetas), displayNum(r.horasDecimal), displayNum(r.jornal), displayNum(r.hs)]));
-    renderTable(els.bd, ['Nombre','Fecha','Hora','Estado','T. Contra.'], state.cleanRows.filter(r => !els.lineFilter.value || r.grupo === els.lineFilter.value).slice(0,1200).map(r => [r.nombre, fmtDate(r.fecha), fmtTime(r.hora), r.estado, r.grupo]));
+    renderTable(els.resumen, ['Nombre','Fecha','Día','Tipo de contratación','Primera entrada','Última salida','Horas brutas','Horas netas','Horas decimal','Jornal','H.S.'], state.summaryRows.slice(0,1200).map(r => [r.nombre, fmtDate(r.fecha), weekdayName(r.fecha), r.grupo, r.primeraEntrada ? fmtTime(r.primeraEntrada) : '', r.ultimaSalida ? fmtTime(r.ultimaSalida) : '', displayNum(r.horasBrutas), displayNum(r.horasNetas), displayNum(r.horasDecimal), displayNum(r.jornal), displayNum(r.hs)]));
+    renderTable(els.bd, ['Nombre','Fecha','Día','Hora','Estado','Tipo de contratación'], state.cleanRows.filter(r => !els.lineFilter.value || r.grupo === els.lineFilter.value).slice(0,1200).map(r => [r.nombre, fmtDate(r.fecha), weekdayName(r.fecha), fmtTime(r.hora), r.estado, r.grupo]));
     const {dates, groups} = state.tareo;
-    let html = '<table><thead><tr><th class="name-col" rowspan="2">Colaboradores</th>' + dates.map(d => `<th colspan="2">${fmtDate(d)}</th>`).join('') + '<th rowspan="2">H.NORMAL</th><th rowspan="2">H.EXTRAS</th><th rowspan="2">H. EXTRAS ANTERIOR</th><th rowspan="2">DOMINICAL</th></tr><tr>' + dates.map(() => '<th>JORNAL</th><th>H.S.</th>').join('') + '</tr></thead><tbody>';
+    let html = '<table><thead><tr><th class="name-col" rowspan="2">Colaboradores</th>' + dates.map(d => `<th colspan="2" class="day-head day-start">${fmtDate(d)}<span class="day-name">${weekdayName(d)}</span></th>`).join('') + '<th rowspan="2" class="totals-head totals-start">H.NORMAL</th><th rowspan="2" class="totals-head">H.EXTRAS</th><th rowspan="2" class="totals-head">DOMINICAL</th></tr><tr>' + dates.map((d, idx) => `<th class="sub-day-start ${idx===0?'day-start':''}">JORNAL</th><th>H.S.</th>`).join('') + '</tr></thead><tbody>';
     groups.forEach(g => {
-      html += `<tr class="group-row"><td colspan="${1 + dates.length * 2 + 4}">${g.grupo}</td></tr>`;
+      html += `<tr class="group-row"><td colspan="${1 + dates.length * 2 + 3}">${g.grupo}</td></tr>`;
       g.rows.forEach(r => {
         html += `<tr><td class="name-col ${r.grupo === 'PLANILLA' ? 'planilla-name' : 'rrhh-name'}">${r.nombre}</td>`;
-        dates.forEach(d => { const k = fmtDate(d), v = r.dias[k] || {jornal:0, hs:0}; html += `<td class="num">${displayNum(v.jornal)}</td><td class="num">${displayNum(v.hs)}</td>`; });
-        html += `<td class="num">${displayNum(r.hNormal)}</td><td class="num">${displayNum(r.hExtras)}</td><td class="num">${displayNum(r.hExtrasAnterior)}</td><td class="num">${displayNum(r.dominical)}</td></tr>`;
+        dates.forEach((d, idx) => { const k = fmtDate(d), v = r.dias[k] || {jornal:0, hs:0}; html += `<td class="num ${idx===0?'day-start sub-day-start':''}">${displayNum(v.jornal)}</td><td class="num">${displayNum(v.hs)}</td>`; });
+        html += `<td class="num totals-cell totals-start">${displayNum(r.hNormal)}</td><td class="num totals-cell">${displayNum(r.hExtras)}</td><td class="num totals-cell">${displayNum(r.dominical)}</td></tr>`;
       });
     });
     html += '</tbody></table>';
     els.tareo.innerHTML = html;
   }
 
-  function updateStats(sourceRows){
-    els.statRows.textContent = sourceRows.length;
-    els.statWorkers.textContent = unique(sourceRows.map(r => r.nombre)).length;
-    els.statDays.textContent = state.tareo.dates.length;
-    els.statSummary.textContent = state.summaryRows.length;
-  }
-
-  function applyStyle(ws, range){
-    for (let R = range.s.r; R <= range.e.r; ++R) {
-      for (let C = range.s.c; C <= range.e.c; ++C) {
-        const ref = XLSX.utils.encode_cell({r:R,c:C});
-        if (!ws[ref]) continue;
-        ws[ref].s = ws[ref].s || {};
-        ws[ref].s.alignment = { vertical:'center', horizontal: C === 0 ? 'left' : 'center', wrapText:true };
-        ws[ref].s.border = { top:{style:'thin', color:{rgb:'D7D7D7'}}, bottom:{style:'thin', color:{rgb:'D7D7D7'}}, left:{style:'thin', color:{rgb:'D7D7D7'}}, right:{style:'thin', color:{rgb:'D7D7D7'}} };
-      }
-    }
-  }
+  function updateStats(sourceRows){ els.statRows.textContent = sourceRows.length; els.statWorkers.textContent = unique(sourceRows.map(r => r.nombre)).length; els.statDays.textContent = state.tareo.dates.length; els.statSummary.textContent = state.summaryRows.length; }
 
   function workbookOut(){
-    const groupFilter = els.lineFilter.value;
-    const bdRows = state.cleanRows.filter(r => !groupFilter || r.grupo === groupFilter);
-    const wb = XLSX.utils.book_new();
-    const bd = bdRows.map(r => ({ Nombre:r.nombre, Fecha:fmtDate(r.fecha), Hora:fmtTime(r.hora), Estado:r.estado, TContra:r.grupo }));
-    const resumen = state.summaryRows.map(r => ({ Nombre:r.nombre, Fecha:fmtDate(r.fecha), TContra:r.grupo, PrimeraEntrada:r.primeraEntrada ? fmtTime(r.primeraEntrada) : '', UltimaSalida:r.ultimaSalida ? fmtTime(r.ultimaSalida) : '', HorasBrutas:r.horasBrutas ?? '', HorasNetas:r.horasNetas ?? '', HorasDecimal:r.horasDecimal ?? '', Jornal:r.jornal ?? '', HS:r.hs ?? '', Dominical:r.dominical ?? '' }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(bd), 'BD_LIMPIA');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'RESUMEN_DIARIO');
-
-    const ws = {};
-    const data = [];
-    const merges = [];
-    const dates = state.tareo.dates;
-    const header1 = ['Colaboradores'];
-    const header2 = [''];
-    dates.forEach(d => { header1.push(fmtDate(d), ''); header2.push('JORNAL', 'H.S.'); });
-    header1.push('H.NORMAL', 'H.EXTRAS', 'H. EXTRAS ANTERIOR', 'DOMINICAL');
-    header2.push('', '', '', '');
-    data.push(header1, header2);
-    let c = 1;
-    dates.forEach(() => { merges.push({ s:{r:0,c}, e:{r:0,c:c+1} }); c += 2; });
-    merges.push({ s:{r:0,c:0}, e:{r:1,c:0} });
-    const lastStart = 1 + dates.length * 2;
-    for (let i = 0; i < 4; i++) merges.push({ s:{r:0,c:lastStart+i}, e:{r:1,c:lastStart+i} });
-
-    state.tareo.groups.forEach(g => {
-      data.push([g.grupo]);
-      const rowIndex = data.length - 1;
-      merges.push({ s:{r:rowIndex,c:0}, e:{r:rowIndex,c:lastStart+3} });
-      g.rows.forEach(r => {
-        const row = [r.nombre];
-        dates.forEach(d => { const k = fmtDate(d); row.push(r.dias[k]?.jornal ?? 0, r.dias[k]?.hs ?? 0); });
-        row.push(r.hNormal, r.hExtras, r.hExtrasAnterior, r.dominical);
-        data.push(row);
-      });
+    const headers = ['Colaboradores'];
+    state.tareo.dates.forEach(d => { headers.push(`${fmtDate(d)} ${weekdayName(d)} JORNAL`, `${fmtDate(d)} ${weekdayName(d)} H.S.`); });
+    headers.push('H.NORMAL','H.EXTRAS','DOMINICAL');
+    const rows = state.tareo.rows.map(r => {
+      const row = [r.nombre];
+      state.tareo.dates.forEach(d => { const k = fmtDate(d); row.push(r.dias[k]?.jornal ?? 0, r.dias[k]?.hs ?? 0); });
+      row.push(r.hNormal, r.hExtras, r.dominical);
+      return row;
     });
-
-    XLSX.utils.aoa_to_sheet(data, ws);
-    ws['!merges'] = merges;
-    ws['!cols'] = [{wch:34}];
-    dates.forEach(() => { ws['!cols'].push({wch:8},{wch:7}); });
-    ws['!cols'].push({wch:10},{wch:10},{wch:16},{wch:10});
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    applyStyle(ws, range);
-    for (let C = 0; C <= range.e.c; ++C) {
-      const ref1 = XLSX.utils.encode_cell({r:0,c:C});
-      const ref2 = XLSX.utils.encode_cell({r:1,c:C});
-      if (ws[ref1]) ws[ref1].s = { ...(ws[ref1].s||{}), font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb: C===0 ? '2E74B5' : '274F80'}}, alignment:{horizontal:'center',vertical:'center'} };
-      if (ws[ref2]) ws[ref2].s = { ...(ws[ref2].s||{}), font:{bold:true,color:{rgb:'000000'}}, fill:{fgColor:{rgb:'F2F2F2'}}, alignment:{horizontal:'center',vertical:'center'} };
-    }
-    for (let R = 2; R <= range.e.r; ++R) {
-      const nameRef = XLSX.utils.encode_cell({r:R,c:0});
-      if (!ws[nameRef]) continue;
-      const rowText = String(ws[nameRef].v ?? '');
-      if (rowText && !data[R][1]) {
-        ws[nameRef].s = { ...(ws[nameRef].s||{}), font:{bold:true,color:{rgb:'0D6870'}}, fill:{fgColor:{rgb:'EAF3F4'}} };
-      } else {
-        const isPlanilla = PLANILLA_SET.has(normalizeSimple(rowText));
-        ws[nameRef].s = { ...(ws[nameRef].s||{}), font:{bold:isPlanilla,color:{rgb:'000000'}}, fill:{fgColor:{rgb:isPlanilla ? 'E8F4FF' : 'FFFFFF'}} };
-        for (let C = 1; C <= range.e.c; ++C) {
-          const ref = XLSX.utils.encode_cell({r:R,c:C});
-          if (ws[ref] && typeof ws[ref].v === 'number') ws[ref].z = '0.##';
-        }
-      }
-    }
-    XLSX.utils.book_append_sheet(wb, ws, 'TAREO');
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    for (let c = 1; c < headers.length; c++) { const rangeRef = XLSX.utils.encode_col(c); for (let r = 1; r <= rows.length; r++) { const ref = `${rangeRef}${r+1}`; if (ws[ref] && typeof ws[ref].v === 'number') ws[ref].z = '0.##'; } }
+    ws['!cols'] = [{wch:34}, ...Array(headers.length - 1).fill({wch:10})];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'DATA_PARA_PEGAR');
     return wb;
   }
 
@@ -401,80 +304,44 @@
       const {filteredRows, summaryRows, effectiveRows} = buildSummary(state.cleanRows, startDate, endDate, groupFilter);
       state.summaryRows = summaryRows;
       state.tareo = buildTareo(summaryRows, filteredRows, startDate, endDate, groupFilter);
-      renderAll();
-      updateStats(effectiveRows);
-      setStatus(`Procesado correctamente · ${summaryRows.length} filas resumen`, 'ok');
-      els.downloadXlsxBtn.disabled = !summaryRows.length;
-      els.downloadCsvBtn.disabled = !summaryRows.length;
-    } catch (err) {
-      setStatus('Ocurrió un error', 'error');
-      showError(err.message || 'No se pudo procesar el archivo.');
-    }
+      renderAll(); updateStats(effectiveRows); setStatus(`Procesado correctamente · ${summaryRows.length} filas resumen`, 'ok');
+      els.downloadXlsxBtn.disabled = !summaryRows.length; els.downloadCsvBtn.disabled = !summaryRows.length;
+    } catch (err) { setStatus('Ocurrió un error', 'error'); showError(err.message || 'No se pudo procesar el archivo.'); }
   }
 
   function handleWorkbook(file){
-    clearError();
-    setFileName(file?.name || 'Ningún archivo seleccionado');
+    clearError(); setFileName(file?.name || 'Ningún archivo seleccionado');
     const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        state.workbook = XLSX.read(e.target.result, { type:'array', cellDates:true, raw:true });
-        state.fileName = (file.name || 'tareo').replace(/\.(xlsx|xls)$/i, '') + '_procesado.xlsx';
-        const name = state.workbook.SheetNames[0];
-        const ws = state.workbook.Sheets[name];
-        const rows = XLSX.utils.sheet_to_json(ws, { defval:'', raw:true, cellDates:true });
-        if (!rows.length) throw new Error('La hoja seleccionada no tiene datos.');
-        handleRowsLoaded(rows);
-      } catch (err) {
-        setStatus('No se pudo leer el Excel', 'error');
-        showError(err.message || 'Revisa si el archivo está dañado o no es un Excel válido.');
-      }
-    };
+    reader.onload = e => { try { state.workbook = XLSX.read(e.target.result, { type:'array', cellDates:true, raw:true }); state.fileName = (file.name || 'tareo').replace(/\.(xlsx|xls)$/i, '') + '_datos_para_pegar.xlsx'; const name = state.workbook.SheetNames[0]; const ws = state.workbook.Sheets[name]; const rows = XLSX.utils.sheet_to_json(ws, { defval:'', raw:true, cellDates:true }); if (!rows.length) throw new Error('La hoja seleccionada no tiene datos.'); handleRowsLoaded(rows); } catch (err) { setStatus('No se pudo leer el Excel', 'error'); showError(err.message || 'Revisa si el archivo está dañado o no es un Excel válido.'); } };
     reader.readAsArrayBuffer(file);
   }
 
   function loadSample(){
     const rows = [
-      { Nombre:'Lamper Torres, Jose Ali', Hora:'01/04/2026 06:50', 'Estado de asistencia':'Registro de entrada' },
-      { Nombre:'Lamper Torres, Jose Ali', Hora:'01/04/2026 16:23', 'Estado de asistencia':'Registro de salida' },
-      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'01/04/2026 06:58', 'Estado de asistencia':'Registro de entrada' },
-      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'01/04/2026 17:02', 'Estado de asistencia':'Registro de salida' },
-      { Nombre:'Cordova Mori, Adriel', Hora:'01/04/2026 07:00', 'Estado de asistencia':'Registro de entrada' },
-      { Nombre:'Cordova Mori, Adriel', Hora:'01/04/2026 16:30', 'Estado de asistencia':'Registro de salida' }
+      { Nombre:'Lamper Torres, Jose Ali', Hora:'16/04/2026 06:50', 'Estado de asistencia':'Registro de entrada' },
+      { Nombre:'Lamper Torres, Jose Ali', Hora:'16/04/2026 16:23', 'Estado de asistencia':'Registro de salida' },
+      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'16/04/2026 06:58', 'Estado de asistencia':'Registro de entrada' },
+      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'16/04/2026 17:02', 'Estado de asistencia':'Registro de salida' },
+      { Nombre:'Cordova Mori, Adriel', Hora:'16/04/2026 07:00', 'Estado de asistencia':'Registro de entrada' },
+      { Nombre:'Cordova Mori, Adriel', Hora:'16/04/2026 16:30', 'Estado de asistencia':'Registro de salida' }
     ];
-    state.fileName = 'tareo_ejemplo_procesado.xlsx';
-    setFileName('Ejemplo cargado');
-    handleRowsLoaded(rows);
-    setStatus('Ejemplo cargado', 'ok');
+    state.fileName = 'tareo_datos_para_pegar.xlsx'; setFileName('Ejemplo cargado'); handleRowsLoaded(rows); setStatus('Ejemplo cargado', 'ok');
   }
 
-  function downloadXlsx(){ XLSX.writeFile(workbookOut(), state.fileName); }
+  function downloadXlsx(){ try { XLSX.writeFile(workbookOut(), state.fileName); } catch (err) { showError('No se pudo generar el Excel de salida.'); } }
   function downloadCsv(){
-    const ws = XLSX.utils.json_to_sheet(state.summaryRows.map(r => ({ Nombre:r.nombre, Fecha:fmtDate(r.fecha), TContra:r.grupo, PrimeraEntrada:r.primeraEntrada ? fmtTime(r.primeraEntrada) : '', UltimaSalida:r.ultimaSalida ? fmtTime(r.ultimaSalida) : '', HorasBrutas:r.horasBrutas ?? '', HorasNetas:r.horasNetas ?? '', HorasDecimal:r.horasDecimal ?? '', Jornal:r.jornal ?? '', HS:r.hs ?? '' })));
-    const csv = XLSX.utils.sheet_to_csv(ws);
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'resumen_diario.csv';
-    a.click();
+    const headers = ['Colaboradores']; state.tareo.dates.forEach(d => { headers.push(`${fmtDate(d)} ${weekdayName(d)} JORNAL`, `${fmtDate(d)} ${weekdayName(d)} H.S.`); }); headers.push('H.NORMAL','H.EXTRAS','DOMINICAL');
+    const rows = state.tareo.rows.map(r => { const row = [r.nombre]; state.tareo.dates.forEach(d => { const k = fmtDate(d); row.push(r.dias[k]?.jornal ?? 0, r.dias[k]?.hs ?? 0); }); row.push(r.hNormal, r.hExtras, r.dominical); return row; });
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]); const csv = XLSX.utils.sheet_to_csv(ws); const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'data_para_pegar.csv'; a.click();
   }
 
   els.themeBtn.addEventListener('click', () => document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
   els.fileInput.addEventListener('change', e => e.target.files[0] && handleWorkbook(e.target.files[0]));
-  els.processBtn.addEventListener('click', processNow);
-  els.downloadXlsxBtn.addEventListener('click', downloadXlsx);
-  els.downloadCsvBtn.addEventListener('click', downloadCsv);
-  els.sampleBtn.addEventListener('click', loadSample);
-  els.lineFilter.addEventListener('change', () => { if (state.rawRows.length) processNow(); });
+  els.processBtn.addEventListener('click', processNow); els.downloadXlsxBtn.addEventListener('click', downloadXlsx); els.downloadCsvBtn.addEventListener('click', downloadCsv); els.sampleBtn.addEventListener('click', loadSample); els.lineFilter.addEventListener('change', () => { if (state.rawRows.length) processNow(); });
   ['dragenter','dragover'].forEach(ev => els.dropzone.addEventListener(ev, e => { e.preventDefault(); els.dropzone.classList.add('drag'); }));
   ['dragleave','drop'].forEach(ev => els.dropzone.addEventListener(ev, e => { e.preventDefault(); els.dropzone.classList.remove('drag'); }));
   els.dropzone.addEventListener('drop', e => { const f = e.dataTransfer.files?.[0]; if (f) handleWorkbook(f); });
-  document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    btn.classList.add('active');
-    ['resumen','tareo','bd'].forEach(k => document.getElementById('tab-' + k).classList.add('hidden'));
-    document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
-  }));
+  document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => { document.querySelectorAll('.tab').forEach(x => x.classList.remove('active')); btn.classList.add('active'); ['resumen','tareo','bd'].forEach(k => document.getElementById('tab-' + k).classList.add('hidden')); document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden'); }));
 })();
 </script>
 </body>
