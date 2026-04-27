@@ -189,7 +189,19 @@
     weekdayLunchHours: 1,
     minHoursToDiscountLunch: 5,
     applyLatePenalty: false,
-    baseStartHour: 7
+    baseStartHour: 7,
+
+    // --- NUEVAS REGLAS DE RRHH (TABLA DE COLORES) ---
+    // 1. Redondeo: Cortar los decimales de las horas extras (ej. 1.5 -> 1)
+    truncarHorasExtras: true, 
+    // 2. Mínimo de H.S.: Si el cálculo da menos de esto, no se cuenta (ej. 0.5 -> 0)
+    minimoHsPagables: 1,      
+    // 3. Tope máximo de H.S.: Límite de horas extras diarias
+    topeHsDiario: 5,          
+    // 4. Corte de salida: Forzar hora máxima de salida (ej. 20:00)
+    aplicarCorteSalida: true, 
+    horaCorteMax: 20,
+    minutoCorteMax: 0
   };
 
   const state = {
@@ -263,7 +275,7 @@
   const diffMinutes = (a, b) => Math.abs((b - a) / 60000);
 
   function displayNum(v) {
-    if (v == null || v === '') return '';
+    if (v == null || v === '' || v === 0) return v === 0 ? '0' : '';
     const n = Number(v);
     return isFinite(n) ? n.toFixed(1).replace(/\.0$/, '') : String(v);
   }
@@ -306,88 +318,42 @@
 
   function getEventType(estado) {
     const k = normalizeSimple(estado);
-    if (
-      k.includes('entrada') ||
-      k.includes('ingreso') ||
-      k.includes('check in') ||
-      k.includes('checkin') ||
-      k === 'in'
-    ) return 'IN';
-
-    if (
-      k.includes('salida') ||
-      k.includes('egreso') ||
-      k.includes('check out') ||
-      k.includes('checkout') ||
-      k === 'out'
-    ) return 'OUT';
-
+    if (k.includes('entrada') || k.includes('ingreso') || k.includes('check in') || k.includes('checkin') || k === 'in') return 'IN';
+    if (k.includes('salida') || k.includes('egreso') || k.includes('check out') || k.includes('checkout') || k === 'out') return 'OUT';
     return '';
   }
 
   function parseExcelDate(value) {
     if (value instanceof Date && !isNaN(value)) return value;
-
     if (typeof value === 'number') {
       const p = XLSX.SSF.parse_date_code(value);
       if (p) return new Date(p.y, p.m - 1, p.d, p.H || 0, p.M || 0, p.S || 0);
     }
-
     const t = String(value ?? '').trim();
     if (!t) return null;
 
     const isoLike = t.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
     if (isoLike) {
-      return new Date(
-        Number(isoLike[1]),
-        Number(isoLike[2]) - 1,
-        Number(isoLike[3]),
-        Number(isoLike[4] || 0),
-        Number(isoLike[5] || 0),
-        Number(isoLike[6] || 0)
-      );
+      return new Date(Number(isoLike[1]), Number(isoLike[2]) - 1, Number(isoLike[3]), Number(isoLike[4] || 0), Number(isoLike[5] || 0), Number(isoLike[6] || 0));
     }
-
     const dmy = t.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
     if (dmy) {
       const y = dmy[3].length === 2 ? Number('20' + dmy[3]) : Number(dmy[3]);
-      return new Date(
-        y,
-        Number(dmy[2]) - 1,
-        Number(dmy[1]),
-        Number(dmy[4] || 0),
-        Number(dmy[5] || 0),
-        Number(dmy[6] || 0)
-      );
+      return new Date(y, Number(dmy[2]) - 1, Number(dmy[1]), Number(dmy[4] || 0), Number(dmy[5] || 0), Number(dmy[6] || 0));
     }
-
     const direct = new Date(t);
     return isNaN(direct) ? null : direct;
   }
 
   function detectColumns(headers) {
     const found = { idPersona: '', nombre: '', hora: '', estado: '' };
-
     headers.forEach(h => {
       const k = normalizeSimple(h);
-
-      if (!found.idPersona && [
-        'id de persona','id persona','codigo de persona','codigo persona','id trabajador','id empleado','legajo','codigo','id'
-      ].includes(k)) found.idPersona = h;
-
-      if (!found.nombre && [
-        'nombre','colaborador','trabajador','empleado','personal','name','nombre completo'
-      ].includes(k)) found.nombre = h;
-
-      if (!found.hora && [
-        'hora','fecha y hora','fecha hora','datetime','marcacion','marcacion completa','fecha','time'
-      ].includes(k)) found.hora = h;
-
-      if (!found.estado && [
-        'estado de asistencia','estado','tipo','movimiento','attendance status'
-      ].includes(k)) found.estado = h;
+      if (!found.idPersona && ['id de persona','id persona','codigo de persona','codigo persona','id trabajador','id empleado','legajo','codigo','id'].includes(k)) found.idPersona = h;
+      if (!found.nombre && ['nombre','colaborador','trabajador','empleado','personal','name','nombre completo'].includes(k)) found.nombre = h;
+      if (!found.hora && ['hora','fecha y hora','fecha hora','datetime','marcacion','marcacion completa','fecha','time'].includes(k)) found.hora = h;
+      if (!found.estado && ['estado de asistencia','estado','tipo','movimiento','attendance status'].includes(k)) found.estado = h;
     });
-
     return found;
   }
 
@@ -399,7 +365,6 @@
     if (!map.nombre || !map.hora || !map.estado) {
       throw new Error('No se detectaron bien las columnas clave de Nombre, Hora y Estado.');
     }
-
     return rows.map((row, i) => {
       const dt = parseExcelDate(row[map.hora]);
       const nombre = String(row[map.nombre] ?? '').trim();
@@ -408,17 +373,7 @@
       const tipo = getEventType(estado);
 
       if (!dt || !nombre || !estado) return null;
-
-      return {
-        idPersona,
-        nombre,
-        hora: dt,
-        fecha: dayOnly(dt),
-        estado,
-        tipo,
-        grupo: getGroupByWorker(nombre),
-        fila: i + 2
-      };
+      return { idPersona, nombre, hora: dt, fecha: dayOnly(dt), estado, tipo, grupo: getGroupByWorker(nombre), fila: i + 2 };
     })
     .filter(Boolean)
     .sort((a, b) => a.hora - b.hora || a.fila - b.fila);
@@ -426,22 +381,12 @@
 
   function buildWorkerCatalog(rows) {
     const catalog = new Map();
-
-    [...rows]
-      .sort((a, b) => a.fila - b.fila)
-      .forEach(r => {
-        const key = getWorkerKey(r);
-        if (!catalog.has(key)) {
-          catalog.set(key, {
-            workerKey: key,
-            idPersona: r.idPersona,
-            nombre: r.nombre,
-            grupo: r.grupo,
-            order: r.fila
-          });
-        }
-      });
-
+    [...rows].sort((a, b) => a.fila - b.fila).forEach(r => {
+      const key = getWorkerKey(r);
+      if (!catalog.has(key)) {
+        catalog.set(key, { workerKey: key, idPersona: r.idPersona, nombre: r.nombre, grupo: r.grupo, order: r.fila });
+      }
+    });
     return [...catalog.values()].sort((a, b) => {
       if (a.grupo !== b.grupo) return a.grupo === 'PLANILLA' ? -1 : 1;
       return a.order - b.order;
@@ -450,24 +395,19 @@
 
   function analyzeDayMarks(records, fecha) {
     const anomalies = [];
-    const typed = [...records]
-      .sort((a, b) => a.hora - b.hora || a.fila - b.fila)
-      .filter(r => {
-        if (r.tipo) return true;
-        anomalies.push(`Estado no reconocido: ${r.estado} ${fmtTime(r.hora)}`);
-        return false;
-      });
+    const typed = [...records].sort((a, b) => a.hora - b.hora || a.fila - b.fila).filter(r => {
+      if (r.tipo) return true;
+      anomalies.push(`Estado no reconocido: ${r.estado} ${fmtTime(r.hora)}`);
+      return false;
+    });
 
     const cleaned = [];
-
     for (const r of typed) {
       const prev = cleaned[cleaned.length - 1];
-
       if (prev && prev.tipo === r.tipo && diffMinutes(prev.hora, r.hora) <= SETTINGS.dedupeMinutes) {
         anomalies.push(`${r.tipo === 'IN' ? 'Entrada' : 'Salida'} duplicada ${fmtTime(r.hora)}`);
         continue;
       }
-
       cleaned.push(r);
     }
 
@@ -476,11 +416,8 @@
 
     for (const r of cleaned) {
       if (r.tipo === 'IN') {
-        if (!openEntry) {
-          openEntry = r;
-        } else {
-          anomalies.push(`Entrada repetida ${fmtTime(r.hora)}`);
-        }
+        if (!openEntry) openEntry = r;
+        else anomalies.push(`Entrada repetida ${fmtTime(r.hora)}`);
       }
 
       if (r.tipo === 'OUT') {
@@ -488,18 +425,29 @@
           anomalies.push(`Salida sin entrada ${fmtTime(r.hora)}`);
           continue;
         }
-
         if (r.hora <= openEntry.hora) {
           anomalies.push(`Salida antes de entrada ${fmtTime(r.hora)}`);
           continue;
         }
 
+        let horaSalidaComputable = r.hora;
+
+        // APLICAR CORTE DE SALIDA (RRHH)
+        if (SETTINGS.aplicarCorteSalida) {
+          const corteMaximo = new Date(fecha);
+          corteMaximo.setHours(SETTINGS.horaCorteMax, SETTINGS.minutoCorteMax, 0, 0);
+
+          if (horaSalidaComputable > corteMaximo) {
+            horaSalidaComputable = corteMaximo;
+            anomalies.push(`Salida de ${fmtTime(r.hora)} truncada al tope de ${fmtTime(corteMaximo)}`);
+          }
+        }
+
         sessions.push({
           entrada: openEntry.hora,
-          salida: r.hora,
-          horas: hoursBetween(openEntry.hora, r.hora)
+          salida: horaSalidaComputable,
+          horas: hoursBetween(openEntry.hora, horaSalidaComputable)
         });
-
         openEntry = null;
       }
     }
@@ -507,7 +455,7 @@
     if (openEntry) anomalies.push(`Entrada sin salida ${fmtTime(openEntry.hora)}`);
 
     const totalBruto = sessions.reduce((acc, s) => acc + s.horas, 0);
-    const lunchHours = isSunday(fecha) ? 0 : (totalBruto >= SETTINGS.minHoursToDiscountLunch ? SETTINGS.weekdayLunchHours : 0);
+    const lunchHours = isSunday(fecha) || isHoliday(fecha) ? 0 : (totalBruto >= SETTINGS.minHoursToDiscountLunch ? SETTINGS.weekdayLunchHours : 0);
     const totalNeto = Math.max(0, totalBruto - lunchHours);
     const decimal = roundDownHalf(totalNeto);
 
@@ -533,55 +481,49 @@
     const netas = analysis.totalNeto;
     const decimal = analysis.decimal;
 
-    if (isSunday(fecha)) {
-      return { brutas, netas, decimal, jornal: 0, hs: decimal, dominical: decimal };
+    // LÓGICA DE DOMINGOS Y FERIADOS
+    if (isSunday(fecha) || isHoliday(fecha)) {
+      let hsFeriado = decimal;
+      if (SETTINGS.truncarHorasExtras) hsFeriado = Math.floor(hsFeriado);
+      return { brutas, netas, decimal, jornal: 0, hs: 0, dominical: hsFeriado };
     }
 
     let jornal = Math.min(8, decimal);
-    let hs = Math.max(0, roundDownHalf(decimal - jornal));
+    let hsBruto = decimal - jornal;
+    let hsFinal = hsBruto;
+
+    // APLICAR REGLAS RRHH PARA HORAS EXTRAS
+    if (SETTINGS.truncarHorasExtras) hsFinal = Math.floor(hsFinal);
+    if (hsFinal < SETTINGS.minimoHsPagables) hsFinal = 0;
+    if (hsFinal > SETTINGS.topeHsDiario) hsFinal = SETTINGS.topeHsDiario;
 
     if (SETTINGS.applyLatePenalty && analysis.primeraEntrada) {
-      const horaBase = new Date(
-        fecha.getFullYear(),
-        fecha.getMonth(),
-        fecha.getDate(),
-        SETTINGS.baseStartHour,
-        0, 0, 0
-      );
-
+      const horaBase = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate(), SETTINGS.baseStartHour, 0, 0, 0);
       const tardanzaMin = Math.max(0, Math.round((analysis.primeraEntrada - horaBase) / 60000));
       const bloquesTardanza = tardanzaMin <= 0 ? 0 : Math.ceil(tardanzaMin / 30);
       const topeJornal = Math.max(0, 8 - (bloquesTardanza * 0.5));
+      
       jornal = Math.min(topeJornal, decimal);
-      hs = Math.max(0, roundDownHalf(decimal - jornal));
+      hsBruto = decimal - jornal;
+      hsFinal = SETTINGS.truncarHorasExtras ? Math.floor(hsBruto) : roundDownHalf(hsBruto);
+      
+      if (hsFinal < SETTINGS.minimoHsPagables) hsFinal = 0;
+      if (hsFinal > SETTINGS.topeHsDiario) hsFinal = SETTINGS.topeHsDiario;
     }
 
-    return { brutas, netas, decimal, jornal, hs, dominical: 0 };
+    return { brutas, netas, decimal, jornal, hs: hsFinal, dominical: 0 };
   }
 
   function buildSummary(cleanRows, startDate, endDate) {
-    const effectiveRows = cleanRows.filter(r =>
-      stamp(r.fecha) >= stamp(startDate) && stamp(r.fecha) <= stamp(endDate)
-    );
-
+    const effectiveRows = cleanRows.filter(r => stamp(r.fecha) >= stamp(startDate) && stamp(r.fecha) <= stamp(endDate));
     const group = new Map();
 
     effectiveRows.forEach(r => {
       const workerKey = getWorkerKey(r);
       const key = `${workerKey}__${fmtDate(r.fecha)}`;
-
       if (!group.has(key)) {
-        group.set(key, {
-          workerKey,
-          idPersona: r.idPersona,
-          nombre: r.nombre,
-          fecha: r.fecha,
-          grupo: r.grupo,
-          records: [],
-          order: r.fila
-        });
+        group.set(key, { workerKey, idPersona: r.idPersona, nombre: r.nombre, fecha: r.fecha, grupo: r.grupo, records: [], order: r.fila });
       }
-
       const g = group.get(key);
       g.records.push(r);
       if (r.fila < g.order) g.order = r.fila;
@@ -601,27 +543,13 @@
       }
 
       return {
-        workerKey: g.workerKey,
-        idPersona: g.idPersona,
-        nombre: g.nombre,
-        fecha: g.fecha,
-        grupo: g.grupo,
-        marcas: analysis.rawCount,
-        marcasLimpias: analysis.cleanedCount,
-        sesiones: analysis.sessions.length,
-        primeraEntrada: analysis.primeraEntrada,
-        ultimaSalida: analysis.ultimaSalida,
-        horasBrutas: calc.brutas,
-        horasNetas: calc.netas,
-        horasDecimal: calc.decimal,
-        jornal: calc.jornal,
-        hs: calc.hs,
-        dominical: calc.dominical,
-        anomalias: analysis.anomalies.length,
-        detalle: analysis.anomalies.join(' | '),
-        order: g.order,
-        feriado: isHoliday(g.fecha),
-        alerta
+        workerKey: g.workerKey, idPersona: g.idPersona, nombre: g.nombre, fecha: g.fecha, grupo: g.grupo,
+        marcas: analysis.rawCount, marcasLimpias: analysis.cleanedCount, sesiones: analysis.sessions.length,
+        primeraEntrada: analysis.primeraEntrada, ultimaSalida: analysis.ultimaSalida,
+        horasBrutas: calc.brutas, horasNetas: calc.netas, horasDecimal: calc.decimal,
+        jornal: calc.jornal, hs: calc.hs, dominical: calc.dominical,
+        anomalias: analysis.anomalies.length, detalle: analysis.anomalies.join(' | '),
+        order: g.order, feriado: isHoliday(g.fecha), alerta
       };
     }).sort((a, b) => {
       if (a.grupo !== b.grupo) return a.grupo === 'PLANILLA' ? -1 : 1;
@@ -641,36 +569,23 @@
     const idx = new Map(summaryRows.map(r => [`${r.workerKey}__${fmtDate(r.fecha)}`, r]));
 
     const rows = workers.map(w => {
-      const out = {
-        workerKey: w.workerKey,
-        idPersona: w.idPersona,
-        nombre: w.nombre,
-        grupo: w.grupo,
-        dias: {},
-        hNormal: 0,
-        hExtras: 0,
-        dominical: 0
-      };
+      const out = { workerKey: w.workerKey, idPersona: w.idPersona, nombre: w.nombre, grupo: w.grupo, dias: {}, hNormal: 0, hExtras: 0, dominical: 0 };
 
       dates.forEach(d => {
         const rec = idx.get(`${w.workerKey}__${fmtDate(d)}`);
         const feriado = isHoliday(d);
         const sinMarcaSemana = !rec && isWeekday(d) && !feriado;
         const alerta = rec?.alerta || (sinMarcaSemana ? 'X' : '');
+        
         const jornal = rec?.jornal ?? 0;
         const hs = rec?.hs ?? 0;
+        const dominical = rec?.dominical ?? 0;
 
-        out.dias[fmtDate(d)] = {
-          jornal,
-          hs,
-          feriado,
-          alerta,
-          detalle: rec?.detalle || ''
-        };
+        out.dias[fmtDate(d)] = { jornal, hs, dominical, feriado, alerta, detalle: rec?.detalle || '' };
 
         out.hNormal += jornal;
         out.hExtras += hs;
-        if (isSunday(d)) out.dominical += hs;
+        out.dominical += dominical; // Suma precisa del dominical incluyendo feriados
       });
 
       return out;
@@ -682,15 +597,10 @@
   function handleRowsLoaded(rows) {
     state.rawRows = rows;
     state.map = detectColumns(Object.keys(rows[0] || {}));
-
-    els.columnInfo.textContent =
-      `Detectado → ID: ${state.map.idPersona || '—'} | Nombre: ${state.map.nombre || '—'} | Hora: ${state.map.hora || '—'} | Estado: ${state.map.estado || '—'}`;
-
+    els.columnInfo.textContent = `Detectado → ID: ${state.map.idPersona || '—'} | Nombre: ${state.map.nombre || '—'} | Hora: ${state.map.hora || '—'} | Estado: ${state.map.estado || '—'}`;
     state.cleanRows = buildRows(rows, state.map);
 
-    if (!state.cleanRows.length) {
-      throw new Error('No se obtuvieron registros válidos en el archivo cargado.');
-    }
+    if (!state.cleanRows.length) throw new Error('No se obtuvieron registros válidos en el archivo cargado.');
 
     const ds = state.cleanRows.map(r => stamp(r.fecha));
     els.startDate.value = fmtInput(new Date(Math.min(...ds)));
@@ -702,7 +612,6 @@
 
   function renderTable(container, headers, rows, options = {}) {
     const nameColIndex = Number.isInteger(options.nameColIndex) ? options.nameColIndex : 0;
-
     container.innerHTML =
       '<table><thead><tr>' +
       headers.map((h, i) => `<th class="${i === 0 ? 'name-col' : ''}">${escapeHtml(h)}</th>`).join('') +
@@ -725,95 +634,52 @@
   }
 
   function renderAll() {
-    renderTable(
-      els.resumen,
+    renderTable(els.resumen,
       ['Nombre','ID','Fecha','Día','Marcas','Limpias','Sesiones','Primera entrada','Última salida','Horas brutas','Horas netas','Horas decimal','Jornal','H.S.','Alerta','Detalle'],
       state.summaryRows.slice(0, 2000).map(r => [
-        r.nombre,
-        r.idPersona || '',
-        fmtDate(r.fecha),
-        weekdayName(r.fecha),
-        r.marcas,
-        r.marcasLimpias,
-        r.sesiones,
-        r.primeraEntrada ? fmtTime(r.primeraEntrada) : '',
-        r.ultimaSalida ? fmtTime(r.ultimaSalida) : '',
-        displayNum(r.horasBrutas),
-        displayNum(r.horasNetas),
-        displayNum(r.horasDecimal),
-        displayNum(r.jornal),
-        displayNum(r.hs),
-        r.alerta,
-        r.detalle
+        r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha), r.marcas, r.marcasLimpias, r.sesiones,
+        r.primeraEntrada ? fmtTime(r.primeraEntrada) : '', r.ultimaSalida ? fmtTime(r.ultimaSalida) : '',
+        displayNum(r.horasBrutas), displayNum(r.horasNetas), displayNum(r.horasDecimal), displayNum(r.jornal), displayNum(r.hs), r.alerta, r.detalle
       ])
     );
 
-    renderTable(
-      els.bd,
+    renderTable(els.bd,
       ['Nombre','ID','Fecha','Día','Hora','Estado','Tipo'],
       state.cleanRows.slice(0, 3000).map(r => [
-        r.nombre,
-        r.idPersona || '',
-        fmtDate(r.fecha),
-        weekdayName(r.fecha),
-        fmtTime(r.hora),
-        r.estado,
-        r.tipo || ''
+        r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha), fmtTime(r.hora), r.estado, r.tipo || ''
       ])
     );
 
-    renderTable(
-      els.anomalias,
+    renderTable(els.anomalias,
       ['Nombre','ID','Fecha','Día','Alerta','Detalle','Marcas','Sesiones','Jornal','H.S.'],
       state.anomalyRows.slice(0, 3000).map(r => [
-        r.nombre,
-        r.idPersona || '',
-        fmtDate(r.fecha),
-        weekdayName(r.fecha),
-        r.alerta,
-        r.detalle,
-        r.marcas,
-        r.sesiones,
-        displayNum(r.jornal),
-        displayNum(r.hs)
+        r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha), r.alerta, r.detalle, r.marcas, r.sesiones, displayNum(r.jornal), displayNum(r.hs)
       ])
     );
 
     const { dates, rows } = state.tareo;
-
     let html = '<table><thead><tr>';
     html += '<th class="name-col" rowspan="2">Colaboradores</th>';
-    html += dates.map(d =>
-      `<th colspan="2" class="day-head day-start">${escapeHtml(fmtDate(d))}<span class="day-name">${escapeHtml(weekdayName(d))}</span></th>`
-    ).join('');
-    html += '<th rowspan="2" class="totals-head totals-start">H.NORMAL</th>';
-    html += '<th rowspan="2" class="totals-head">H.EXTRAS</th>';
-    html += '<th rowspan="2" class="totals-head">DOMINICAL</th>';
-    html += '</tr><tr>';
-    html += dates.map((d, idx) =>
-      `<th class="sub-day-start ${idx === 0 ? 'day-start' : ''}">JORNAL</th><th>H.S.</th>`
-    ).join('');
+    html += dates.map(d => `<th colspan="2" class="day-head day-start">${escapeHtml(fmtDate(d))}<span class="day-name">${escapeHtml(weekdayName(d))}</span></th>`).join('');
+    html += '<th rowspan="2" class="totals-head totals-start">H.NORMAL</th><th rowspan="2" class="totals-head">H.EXTRAS</th><th rowspan="2" class="totals-head">DOMINICAL</th></tr><tr>';
+    html += dates.map((d, idx) => `<th class="sub-day-start ${idx === 0 ? 'day-start' : ''}">JORNAL</th><th>H.S.</th>`).join('');
     html += '</tr></thead><tbody>';
 
     rows.forEach(r => {
       html += `<tr><td class="name-col ${r.grupo === 'PLANILLA' ? 'planilla-name' : 'rrhh-name'}">${escapeHtml(r.nombre)}</td>`;
-
       dates.forEach((d, idx) => {
         const k = fmtDate(d);
         const v = r.dias[k] || { jornal: 0, hs: 0, feriado: false, alerta: '', detalle: '' };
         const journalText = v.alerta === 'X' ? 'X' : displayNum(v.jornal);
-        const hsText = v.alerta === 'X' ? '' : displayNum(v.hs);
+        const hsText = (v.alerta === 'X' || v.hs === 0) ? '' : displayNum(v.hs);
         const cellClass = v.alerta ? 'alert-cell' : '';
         const title = escapeHtml(v.detalle || (v.alerta === 'X' ? 'Sin marcas válidas' : ''));
-
         html += `<td class="num ${idx === 0 ? 'day-start sub-day-start' : ''} ${cellClass}" title="${title}">${escapeHtml(journalText)}</td>`;
         html += `<td class="num ${cellClass}" title="${title}">${escapeHtml(hsText)}</td>`;
       });
-
       html += `<td class="num totals-cell totals-start">${escapeHtml(displayNum(r.hNormal))}</td>`;
       html += `<td class="num totals-cell">${escapeHtml(displayNum(r.hExtras))}</td>`;
-      html += `<td class="num totals-cell">${escapeHtml(displayNum(r.dominical))}</td>`;
-      html += '</tr>';
+      html += `<td class="num totals-cell">${escapeHtml(displayNum(r.dominical))}</td></tr>`;
     });
 
     html += '</tbody></table>';
@@ -830,17 +696,11 @@
   function buildTareoSheetData() {
     const row1 = ['Colaboradores'];
     const row2 = [''];
-
-    state.tareo.dates.forEach(d => {
-      row1.push(`${fmtDate(d)} ${weekdayName(d)}`, '');
-      row2.push('JORNAL', 'H.S.');
-    });
-
+    state.tareo.dates.forEach(d => { row1.push(`${fmtDate(d)} ${weekdayName(d)}`, ''); row2.push('JORNAL', 'H.S.'); });
     row1.push('H.NORMAL', 'H.EXTRAS', 'DOMINICAL');
     row2.push('', '', '');
 
     const data = [row1, row2];
-
     state.tareo.rows.forEach(r => {
       const row = [r.nombre];
       state.tareo.dates.forEach(d => {
@@ -852,23 +712,17 @@
       row.push(r.hNormal, r.hExtras, r.dominical);
       data.push(row);
     });
-
     return data;
   }
 
   function workbookOut() {
     const wb = XLSX.utils.book_new();
-
     const tareoData = buildTareoSheetData();
     const wsTareo = XLSX.utils.aoa_to_sheet(tareoData);
     wsTareo['!merges'] = [];
 
     let c = 1;
-    state.tareo.dates.forEach(() => {
-      wsTareo['!merges'].push({ s: { r: 0, c }, e: { r: 0, c: c + 1 } });
-      c += 2;
-    });
-
+    state.tareo.dates.forEach(() => { wsTareo['!merges'].push({ s: { r: 0, c }, e: { r: 0, c: c + 1 } }); c += 2; });
     wsTareo['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 1, c: 0 } });
 
     const start = 1 + state.tareo.dates.length * 2;
@@ -889,22 +743,9 @@
     const resumenData = [
       ['Nombre','ID','Fecha','Día','Marcas','Limpias','Sesiones','Primera entrada','Última salida','Horas brutas','Horas netas','Horas decimal','Jornal','H.S.','Alerta','Detalle'],
       ...state.summaryRows.map(r => [
-        r.nombre,
-        r.idPersona || '',
-        fmtDate(r.fecha),
-        weekdayName(r.fecha),
-        r.marcas,
-        r.marcasLimpias,
-        r.sesiones,
-        r.primeraEntrada ? fmtTime(r.primeraEntrada) : '',
-        r.ultimaSalida ? fmtTime(r.ultimaSalida) : '',
-        r.horasBrutas ?? '',
-        r.horasNetas ?? '',
-        r.horasDecimal ?? '',
-        r.jornal ?? '',
-        r.hs ?? '',
-        r.alerta,
-        r.detalle
+        r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha), r.marcas, r.marcasLimpias, r.sesiones,
+        r.primeraEntrada ? fmtTime(r.primeraEntrada) : '', r.ultimaSalida ? fmtTime(r.ultimaSalida) : '',
+        r.horasBrutas ?? '', r.horasNetas ?? '', r.horasDecimal ?? '', r.jornal ?? '', r.hs ?? '', r.alerta, r.detalle
       ])
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumenData), 'RESUMEN');
@@ -912,16 +753,7 @@
     const anomaliasData = [
       ['Nombre','ID','Fecha','Día','Alerta','Detalle','Marcas','Sesiones','Jornal','H.S.'],
       ...state.anomalyRows.map(r => [
-        r.nombre,
-        r.idPersona || '',
-        fmtDate(r.fecha),
-        weekdayName(r.fecha),
-        r.alerta,
-        r.detalle,
-        r.marcas,
-        r.sesiones,
-        r.jornal ?? '',
-        r.hs ?? ''
+        r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha), r.alerta, r.detalle, r.marcas, r.sesiones, r.jornal ?? '', r.hs ?? ''
       ])
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(anomaliasData), 'ANOMALIAS');
@@ -931,17 +763,13 @@
 
   function processNow() {
     clearError();
-
     try {
       if (!state.rawRows.length) throw new Error('Primero carga un archivo o un ejemplo.');
-
       const startDate = els.startDate.value ? new Date(els.startDate.value + 'T00:00:00') : new Date();
       const endDate = els.endDate.value ? new Date(els.endDate.value + 'T00:00:00') : new Date();
-
       if (startDate > endDate) throw new Error('La fecha de inicio no puede ser mayor que la fecha fin.');
 
       const { summaryRows, effectiveRows, workers } = buildSummary(state.cleanRows, startDate, endDate);
-
       state.summaryRows = summaryRows;
       state.anomalyRows = summaryRows.filter(r => r.alerta || r.anomalias > 0);
       state.workers = workers;
@@ -962,46 +790,29 @@
   function handleWorkbook(file) {
     clearError();
     setFileName(file?.name || 'Ningún archivo seleccionado');
-
     const reader = new FileReader();
     reader.onload = e => {
       try {
         state.workbook = XLSX.read(e.target.result, { type: 'array', cellDates: true, raw: true });
         state.fileName = (file.name || 'tareo').replace(/\.(xlsx|xls)$/i, '') + '_tareo.xlsx';
-
         const name = state.workbook.SheetNames[0];
         const ws = state.workbook.Sheets[name];
         const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true, cellDates: true });
-
         if (!rows.length) throw new Error('La hoja seleccionada no tiene datos.');
-
         handleRowsLoaded(rows);
       } catch (err) {
         setStatus('No se pudo leer el Excel', 'error');
         showError(err.message || 'Revisa si el archivo está dañado o no es un Excel válido.');
       }
     };
-
     reader.readAsArrayBuffer(file);
   }
 
   function loadSample() {
     const rows = [
       { 'ID de persona': '00000027', Nombre: 'Lamper Torres, Jose Ali', Hora: '07/04/2026 07:30', 'Estado de asistencia': 'Registro de entrada' },
-      { 'ID de persona': '00000027', Nombre: 'Lamper Torres, Jose Ali', Hora: '07/04/2026 16:00', 'Estado de asistencia': 'Registro de salida' },
-
-      { 'ID de persona': '00000028', Nombre: 'Rincon Ramirez, Giovanni José', Hora: '08/04/2026 07:01', 'Estado de asistencia': 'Registro de entrada' },
-      { 'ID de persona': '00000028', Nombre: 'Rincon Ramirez, Giovanni José', Hora: '08/04/2026 16:28', 'Estado de asistencia': 'Registro de salida' },
-      { 'ID de persona': '00000028', Nombre: 'Rincon Ramirez, Giovanni José', Hora: '08/04/2026 16:29', 'Estado de asistencia': 'Registro de salida' },
-
-      { 'ID de persona': '00000035', Nombre: 'Cordova Mori, Adriel', Hora: '09/04/2026 08:00', 'Estado de asistencia': 'Registro de entrada' },
-      { 'ID de persona': '00000035', Nombre: 'Cordova Mori, Adriel', Hora: '09/04/2026 19:00', 'Estado de asistencia': 'Registro de salida' },
-
-      { 'ID de persona': '00000033', Nombre: 'Valderrama Mozombite, Gustavo', Hora: '10/04/2026 06:30', 'Estado de asistencia': 'Registro de entrada' },
-      { 'ID de persona': '00000033', Nombre: 'Valderrama Mozombite, Gustavo', Hora: '10/04/2026 16:10', 'Estado de asistencia': 'Registro de salida' },
-      { 'ID de persona': '00000033', Nombre: 'Valderrama Mozombite, Gustavo', Hora: '10/04/2026 16:11', 'Estado de asistencia': 'Registro de salida' }
+      { 'ID de persona': '00000027', Nombre: 'Lamper Torres, Jose Ali', Hora: '07/04/2026 16:00', 'Estado de asistencia': 'Registro de salida' }
     ];
-
     state.fileName = 'tareo_tabla.xlsx';
     setFileName('Ejemplo cargado');
     handleRowsLoaded(rows);
@@ -1009,19 +820,12 @@
   }
 
   function downloadXlsx() {
-    try {
-      const wb = workbookOut();
-      XLSX.writeFile(wb, state.fileName);
-    } catch (err) {
-      showError('No se pudo generar el Excel de salida.');
-    }
+    try { XLSX.writeFile(workbookOut(), state.fileName); } 
+    catch (err) { showError('No se pudo generar el Excel de salida.'); }
   }
 
   function downloadCsv() {
-    const data = buildTareoSheetData();
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const csv = XLSX.utils.sheet_to_csv(ws);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([XLSX.utils.sheet_to_csv(XLSX.utils.aoa_to_sheet(buildTareoSheetData()))], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'tareo.csv';
@@ -1030,40 +834,18 @@
   }
 
   els.themeBtn.addEventListener('click', () => {
-    document.documentElement.setAttribute(
-      'data-theme',
-      document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'
-    );
+    document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
   });
 
-  els.fileInput.addEventListener('change', e => {
-    const f = e.target.files?.[0];
-    if (f) handleWorkbook(f);
-  });
-
+  els.fileInput.addEventListener('change', e => { const f = e.target.files?.[0]; if (f) handleWorkbook(f); });
   els.processBtn.addEventListener('click', processNow);
   els.downloadXlsxBtn.addEventListener('click', downloadXlsx);
   els.downloadCsvBtn.addEventListener('click', downloadCsv);
   els.sampleBtn.addEventListener('click', loadSample);
 
-  ['dragenter','dragover'].forEach(ev => {
-    els.dropzone.addEventListener(ev, e => {
-      e.preventDefault();
-      els.dropzone.classList.add('drag');
-    });
-  });
-
-  ['dragleave','drop'].forEach(ev => {
-    els.dropzone.addEventListener(ev, e => {
-      e.preventDefault();
-      els.dropzone.classList.remove('drag');
-    });
-  });
-
-  els.dropzone.addEventListener('drop', e => {
-    const f = e.dataTransfer.files?.[0];
-    if (f) handleWorkbook(f);
-  });
+  ['dragenter','dragover'].forEach(ev => els.dropzone.addEventListener(ev, e => { e.preventDefault(); els.dropzone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev => els.dropzone.addEventListener(ev, e => { e.preventDefault(); els.dropzone.classList.remove('drag'); }));
+  els.dropzone.addEventListener('drop', e => { const f = e.dataTransfer.files?.[0]; if (f) handleWorkbook(f); });
 
   document.querySelectorAll('.tab').forEach(btn => {
     btn.addEventListener('click', () => {
