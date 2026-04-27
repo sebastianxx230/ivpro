@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Filtro automático de datos</title>
-  <meta name="description" content="Procesa datos de marcador y genera resumen diario y tareo.">
+  <meta name="description" content="Procesa datos de marcador, resumen diario y tareo.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -13,12 +13,12 @@
     :root,[data-theme="light"]{
       --bg:#f7f6f2;--panel:#ffffff;--panel-2:#f3f1eb;--text:#1f1f1a;--muted:#6d685f;--line:#ddd6cc;
       --primary:#0d6870;--ok:#4a7a2d;--danger:#ad4a55;--shadow:0 8px 24px rgba(25,24,22,.05);
-      --planilla-soft:#e8f4ff;--day-sep:#c9d7e8;--totals:#eef2f6;--head-soft:#f5f8fb
+      --planilla-soft:#e8f4ff;--day-sep:#c9d7e8;--totals:#eef2f6;--head-soft:#f5f8fb;--holiday:#e9f7ec;--holiday-text:#235b2d
     }
     [data-theme="dark"]{
       --bg:#171614;--panel:#1d1c19;--panel-2:#26231f;--text:#f2eee7;--muted:#aba395;--line:#3b3630;
       --primary:#63a8b0;--ok:#88ca5f;--danger:#df7d86;--shadow:0 12px 28px rgba(0,0,0,.22);
-      --planilla-soft:#244760;--day-sep:#3e5870;--totals:#232a31;--head-soft:#211f1b
+      --planilla-soft:#244760;--day-sep:#3e5870;--totals:#232a31;--head-soft:#211f1b;--holiday:#213426;--holiday-text:#97e5a4
     }
     *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.45}
     button,input{font:inherit}
@@ -53,6 +53,7 @@
     .sub-day-start,.day-start{border-left:2px solid var(--day-sep) !important}
     .totals-head,.totals-cell{background:var(--totals) !important}
     .totals-start{border-left:3px solid var(--line) !important}
+    .holiday-cell{background:var(--holiday) !important;color:var(--holiday-text) !important;font-weight:800}
     .dropzone{border:1.5px dashed var(--line);background:var(--panel-2);border-radius:14px;padding:12px}.dropzone.drag{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 8%, var(--panel-2))}
     @media (max-width:1320px){.top-filters-grid{grid-template-columns:1fr 1fr 1fr}.header-actions{justify-content:flex-start}}
     @media (max-width:980px){.stats{grid-template-columns:1fr 1fr}.table-box{max-height:none}.main-toolbar{flex-direction:column;align-items:flex-start}}
@@ -66,7 +67,7 @@
       <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18V6l7-3 7 3v12l-7 3-7-3Z"></path><path d="M12 3v18"></path><path d="M5 6l7 4 7-4"></path></svg></div>
       <div>
         <div class="title">Filtro automático de datos</div>
-        <div class="subtitle">Carga tu archivo para filtrar los datos.</div>
+        <div class="subtitle"></div>
       </div>
     </div>
     <button id="themeBtn" class="theme" type="button">Tema</button>
@@ -136,6 +137,7 @@
 
   const PLANILLA_SET = new Set(['lamper torres jose ali','munoz garcia miguel angel','rincon ramirez giovanni jose','rubina reynoso nilton aquiles','saldana alanya carlos alberto','valderrama alva sergio angel','valderrama mozombite gustavo']);
   const DAYS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const HOLIDAY_OVERRIDES = new Set(['02/04/2026','03/04/2026']);
 
   const pad = n => String(n).padStart(2,'0');
   const normalize = v => String(v ?? '').trim().toLowerCase();
@@ -151,6 +153,7 @@
 
   function displayNum(v){ if (v == null || v === '') return ''; const n = Number(v); return isFinite(n) ? n.toFixed(1).replace(/\.0$/, '') : v; }
   function getGroupByWorker(name){ return PLANILLA_SET.has(normalizeSimple(name)) ? 'PLANILLA' : 'RRHH'; }
+  function isHoliday(d){ return HOLIDAY_OVERRIDES.has(fmtDate(d)); }
   function showError(msg){ els.errorBox.textContent = msg; els.errorBox.classList.remove('hidden'); }
   function clearError(){ els.errorBox.classList.add('hidden'); els.errorBox.textContent = ''; }
   function setStatus(text, tone=''){ els.statusBadge.className = 'pill ' + tone; els.statusBadge.textContent = text; }
@@ -216,14 +219,24 @@
       if (r.fila < g.order) g.order = r.fila;
     });
     const summaryRows = [...group.values()].map(g => {
+      const fechaStr = fmtDate(g.fecha);
+      if (isHoliday(g.fecha)) {
+        return { nombre:g.nombre, fecha:g.fecha, grupo:g.grupo, primeraEntrada:null, ultimaSalida:null, horasBrutas:8, horasNetas:8, horasDecimal:8, jornal:8, hs:0, dominical:0, order:g.order, feriado:true };
+      }
       const primera = g.entradas.length ? new Date(Math.min(...g.entradas.map(x => x.getTime()))) : null;
       const ultima = g.salidas.length ? new Date(Math.max(...g.salidas.map(x => x.getTime()))) : null;
       const brutas = primera && ultima ? (ultima - primera) / 36e5 : null;
       const netas = brutas == null ? null : Math.max(0, brutas - lunchHours);
       const decimal = netas == null ? null : Math.floor(netas * 2) / 2;
-      const jornal = decimal == null ? null : Math.min(normalCap, decimal);
-      const hs = decimal == null ? null : Math.max(0, decimal - normalCap);
-      return { nombre:g.nombre, fecha:g.fecha, grupo:g.grupo, primeraEntrada:primera, ultimaSalida:ultima, horasBrutas:brutas, horasNetas:netas, horasDecimal:decimal, jornal, hs, dominical:isSunday(g.fecha) ? (jornal || 0) : 0, order:g.order };
+      let jornal = decimal == null ? null : Math.min(normalCap, decimal);
+      let hs = decimal == null ? null : Math.max(0, decimal - normalCap);
+      let dominical = 0;
+      if (isSunday(g.fecha)) {
+        hs = decimal ?? 0;
+        jornal = 0;
+        dominical = hs;
+      }
+      return { nombre:g.nombre, fecha:g.fecha, grupo:g.grupo, primeraEntrada:primera, ultimaSalida:ultima, horasBrutas:brutas, horasNetas:netas, horasDecimal:decimal, jornal, hs, dominical, order:g.order, feriado:false };
     }).sort((a,b) => (a.grupo === b.grupo ? a.order - b.order || a.fecha - b.fecha : (a.grupo === 'PLANILLA' ? -1 : 1)));
     return { summaryRows, effectiveRows };
   }
@@ -234,7 +247,15 @@
     const idx = new Map(summaryRows.map(r => [`${r.nombre}__${fmtDate(r.fecha)}`, r]));
     const rows = ordered.map(nombre => {
       const grupo = getGroupByWorker(nombre); const out = { nombre, grupo, dias:{}, hNormal:0, hExtras:0, dominical:0 };
-      dates.forEach(d => { const rec = idx.get(`${nombre}__${fmtDate(d)}`); const jornal = rec?.jornal ?? 0, hs = rec?.hs ?? 0; out.dias[fmtDate(d)] = { jornal, hs }; out.hNormal += jornal; out.hExtras += hs; if (isSunday(d)) out.dominical += jornal; });
+      dates.forEach(d => {
+        const rec = idx.get(`${nombre}__${fmtDate(d)}`);
+        const jornal = rec?.jornal ?? (isHoliday(d) ? 8 : 0);
+        const hs = rec?.hs ?? 0;
+        out.dias[fmtDate(d)] = { jornal, hs, feriado:isHoliday(d) };
+        out.hNormal += jornal;
+        out.hExtras += hs;
+        if (isSunday(d)) out.dominical += hs;
+      });
       return out;
     });
     return { dates, rows };
@@ -247,13 +268,13 @@
   }
 
   function renderAll(){
-    renderTable(els.resumen, ['Nombre','Fecha','Día','Primera entrada','Última salida','Horas brutas','Horas netas','Horas decimal','Jornal','H.S.'], state.summaryRows.slice(0,1200).map(r => [r.nombre, fmtDate(r.fecha), weekdayName(r.fecha), r.primeraEntrada ? fmtTime(r.primeraEntrada) : '', r.ultimaSalida ? fmtTime(r.ultimaSalida) : '', displayNum(r.horasBrutas), displayNum(r.horasNetas), displayNum(r.horasDecimal), displayNum(r.jornal), displayNum(r.hs)]));
+    renderTable(els.resumen, ['Nombre','Fecha','Día','Primera entrada','Última salida','Horas brutas','Horas netas','Horas decimal','Jornal','H.S.'], state.summaryRows.slice(0,1200).map(r => [r.nombre, fmtDate(r.fecha), weekdayName(r.fecha), r.primeraEntrada ? fmtTime(r.primeraEntrada) : (r.feriado ? 'FERIADO' : ''), r.ultimaSalida ? fmtTime(r.ultimaSalida) : '', displayNum(r.horasBrutas), displayNum(r.horasNetas), displayNum(r.horasDecimal), displayNum(r.jornal), displayNum(r.hs)]));
     renderTable(els.bd, ['Nombre','Fecha','Día','Hora','Estado'], state.cleanRows.slice(0,1200).map(r => [r.nombre, fmtDate(r.fecha), weekdayName(r.fecha), fmtTime(r.hora), r.estado]));
     const {dates, rows} = state.tareo;
     let html = '<table><thead><tr><th class="name-col" rowspan="2">Colaboradores</th>' + dates.map(d => `<th colspan="2" class="day-head day-start">${fmtDate(d)}<span class="day-name">${weekdayName(d)}</span></th>`).join('') + '<th rowspan="2" class="totals-head totals-start">H.NORMAL</th><th rowspan="2" class="totals-head">H.EXTRAS</th><th rowspan="2" class="totals-head">DOMINICAL</th></tr><tr>' + dates.map((d, idx) => `<th class="sub-day-start ${idx===0?'day-start':''}">JORNAL</th><th>H.S.</th>`).join('') + '</tr></thead><tbody>';
     rows.forEach(r => {
       html += `<tr><td class="name-col ${r.grupo === 'PLANILLA' ? 'planilla-name' : 'rrhh-name'}">${r.nombre}</td>`;
-      dates.forEach((d, idx) => { const k = fmtDate(d), v = r.dias[k] || {jornal:0, hs:0}; html += `<td class="num ${idx===0?'day-start sub-day-start':''}">${displayNum(v.jornal)}</td><td class="num">${displayNum(v.hs)}</td>`; });
+      dates.forEach((d, idx) => { const k = fmtDate(d), v = r.dias[k] || {jornal:0, hs:0, feriado:false}; html += `<td class="num ${idx===0?'day-start sub-day-start':''} ${v.feriado ? 'holiday-cell' : ''}">${displayNum(v.jornal)}</td><td class="num ${v.feriado ? 'holiday-cell' : ''}">${displayNum(v.hs)}</td>`; });
       html += `<td class="num totals-cell totals-start">${displayNum(r.hNormal)}</td><td class="num totals-cell">${displayNum(r.hExtras)}</td><td class="num totals-cell">${displayNum(r.dominical)}</td></tr>`;
     });
     html += '</tbody></table>';
@@ -332,12 +353,12 @@
 
   function loadSample(){
     const rows = [
-      { Nombre:'Lamper Torres, Jose Ali', Hora:'16/04/2026 06:50', 'Estado de asistencia':'Registro de entrada' },
-      { Nombre:'Lamper Torres, Jose Ali', Hora:'16/04/2026 16:23', 'Estado de asistencia':'Registro de salida' },
-      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'16/04/2026 06:58', 'Estado de asistencia':'Registro de entrada' },
-      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'16/04/2026 17:02', 'Estado de asistencia':'Registro de salida' },
-      { Nombre:'Cordova Mori, Adriel', Hora:'16/04/2026 07:00', 'Estado de asistencia':'Registro de entrada' },
-      { Nombre:'Cordova Mori, Adriel', Hora:'16/04/2026 16:30', 'Estado de asistencia':'Registro de salida' }
+      { Nombre:'Lamper Torres, Jose Ali', Hora:'02/04/2026 07:00', 'Estado de asistencia':'Registro de entrada' },
+      { Nombre:'Lamper Torres, Jose Ali', Hora:'02/04/2026 15:00', 'Estado de asistencia':'Registro de salida' },
+      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'03/04/2026 07:00', 'Estado de asistencia':'Registro de entrada' },
+      { Nombre:'Muñoz Garcia, Miguel Angel', Hora:'03/04/2026 12:00', 'Estado de asistencia':'Registro de salida' },
+      { Nombre:'Cordova Mori, Adriel', Hora:'05/04/2026 07:00', 'Estado de asistencia':'Registro de entrada' },
+      { Nombre:'Cordova Mori, Adriel', Hora:'05/04/2026 13:00', 'Estado de asistencia':'Registro de salida' }
     ];
     state.fileName = 'tareo_tabla.xlsx'; setFileName('Ejemplo cargado'); handleRowsLoaded(rows); setStatus('Ejemplo cargado', 'ok');
   }
