@@ -166,22 +166,20 @@
     if (!primera || !ultima) return { brutas:null, netas:null, decimal:null, jornal:null, hs:null, dominical:0 };
 
     const brutas = hoursBetween(primera, ultima);
-    const lunchHours = 1;
-    const normalCap = 8;
-    const normalEnd = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate(), 16, 0, 0, 0);
-
-    if (isSunday(fecha)) {
-      const decimal = roundDownHalf(brutas);
-      return { brutas, netas:brutas, decimal, jornal:0, hs:decimal, dominical:decimal };
-    }
-
-    const horasHastaLas4 = hoursBetween(primera, new Date(Math.min(ultima.getTime(), normalEnd.getTime())));
-    const jornalBase = Math.max(0, horasHastaLas4 - lunchHours);
-    const jornal = Math.min(normalCap, roundDownHalf(jornalBase));
-    const extraBase = ultima > normalEnd ? hoursBetween(normalEnd, ultima) : 0;
-    const hs = roundDownHalf(extraBase);
+    const lunchHours = isSunday(fecha) ? 0 : 1;
     const netas = Math.max(0, brutas - lunchHours);
     const decimal = roundDownHalf(netas);
+
+    if (isSunday(fecha)) {
+      return { brutas, netas, decimal, jornal:0, hs:decimal, dominical:decimal };
+    }
+
+    const horaBase = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate(), 7, 0, 0, 0);
+    const tardanzaMin = Math.max(0, Math.round((primera - horaBase) / 60000));
+    const bloquesTardanza = tardanzaMin <= 0 ? 0 : Math.ceil(tardanzaMin / 30);
+    const topeJornal = Math.max(0, 8 - (bloquesTardanza * 0.5));
+    const jornal = Math.min(topeJornal, decimal);
+    const hs = Math.max(0, roundDownHalf(decimal - jornal));
 
     return { brutas, netas, decimal, jornal, hs, dominical:0 };
   }
