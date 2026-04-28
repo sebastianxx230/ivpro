@@ -198,9 +198,7 @@
     baseStartHour: 7,
 
     // --- REGLAS DE RRHH ---
-    aplicarCorteSalida: true, 
-    horaCorteMax: 20,
-    minutoCorteMax: 0,
+    // Tope máximo de H.S. diarias permitidas
     topeHsDiario: 6
   };
 
@@ -430,22 +428,10 @@
           continue;
         }
 
-        let horaSalidaComputable = r.hora;
-
-        if (SETTINGS.aplicarCorteSalida) {
-          const corteMaximo = new Date(fecha);
-          corteMaximo.setHours(SETTINGS.horaCorteMax, SETTINGS.minutoCorteMax, 0, 0);
-
-          if (horaSalidaComputable > corteMaximo) {
-            horaSalidaComputable = corteMaximo;
-            anomalies.push(`Salida de ${fmtTime(r.hora)} truncada al tope de ${fmtTime(corteMaximo)}`);
-          }
-        }
-
         sessions.push({
           entrada: openEntry.hora,
-          salida: horaSalidaComputable,
-          horas: hoursBetween(openEntry.hora, horaSalidaComputable)
+          salida: r.hora,
+          horas: hoursBetween(openEntry.hora, r.hora)
         });
         openEntry = null;
       }
@@ -678,7 +664,6 @@
 
   function renderAll() {
     renderTable(els.resumen,
-      // Columnas Limpias y eliminadas: 'Marcas','Limpias','Sesiones'
       ['Nombre','ID','Fecha','Día','Primera entrada','Última salida','Horas brutas','Horas netas','Jornal','H.S.','Alerta','Detalle'],
       state.summaryRows.slice(0, 2000).map(r => [
         r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha),
