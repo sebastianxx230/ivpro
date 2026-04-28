@@ -13,12 +13,14 @@
     :root,[data-theme="light"]{
       --bg:#f7f6f2;--panel:#ffffff;--panel-2:#f3f1eb;--text:#1f1f1a;--muted:#6d685f;--line:#ddd6cc;
       --primary:#0d6870;--ok:#4a7a2d;--danger:#ad4a55;--warn:#c97a16;--warn-bg:#fff0d9;--warn-text:#8a4d00;--shadow:0 8px 24px rgba(25,24,22,.05);
-      --planilla-soft:#e8f4ff;--day-sep:#c9d7e8;--totals:#eef2f6;--head-soft:#f5f8fb
+      --planilla-soft:#e8f4ff;--day-sep:#c9d7e8;--totals:#eef2f6;--head-soft:#f5f8fb;
+      --falta-bg:#ffeceb;--falta-text:#ad4a55;
     }
     [data-theme="dark"]{
       --bg:#171614;--panel:#1d1c19;--panel-2:#26231f;--text:#f2eee7;--muted:#aba395;--line:#3b3630;
       --primary:#63a8b0;--ok:#88ca5f;--danger:#df7d86;--warn:#f0a74b;--warn-bg:#4a3318;--warn-text:#ffd39c;--shadow:0 12px 28px rgba(0,0,0,.22);
-      --planilla-soft:#244760;--day-sep:#3e5870;--totals:#232a31;--head-soft:#211f1b
+      --planilla-soft:#244760;--day-sep:#3e5870;--totals:#232a31;--head-soft:#211f1b;
+      --falta-bg:#4a2327;--falta-text:#df7d86;
     }
     *{box-sizing:border-box}
     html{scroll-behavior:smooth}
@@ -83,7 +85,12 @@
     .sub-day-start,.day-start{border-left:2px solid var(--day-sep) !important}
     .totals-head,.totals-cell{background:var(--totals) !important}
     .totals-start{border-left:3px solid var(--line) !important}
+    
+    /* NUEVOS COLORES PARA LAS ALERTAS F e I */
+    .alerta-f{background:var(--falta-bg) !important;color:var(--falta-text) !important;font-weight:800}
+    .alerta-i{background:var(--warn-bg) !important;color:var(--warn-text) !important;font-weight:800}
     .alert-cell{background:var(--warn-bg) !important;color:var(--warn-text) !important;font-weight:800}
+    
     .dropzone{border:1.5px dashed var(--line);background:var(--panel-2);border-radius:14px;padding:12px}
     .dropzone.drag{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 8%, var(--panel-2))}
     @media (max-width:1320px){
@@ -188,20 +195,13 @@
     dedupeMinutes: 3,
     weekdayLunchHours: 1,
     minHoursToDiscountLunch: 5,
-    applyLatePenalty: false,
     baseStartHour: 7,
 
-    // --- NUEVAS REGLAS DE RRHH (TABLA DE COLORES) ---
-    // 1. Redondeo: Cortar los decimales de las horas extras (ej. 1.5 -> 1)
-    truncarHorasExtras: true, 
-    // 2. Mínimo de H.S.: Si el cálculo da menos de esto, no se cuenta (ej. 0.5 -> 0)
-    minimoHsPagables: 1,      
-    // 3. Tope máximo de H.S.: Límite de horas extras diarias
-    topeHsDiario: 5,          
-    // 4. Corte de salida: Forzar hora máxima de salida (ej. 20:00)
+    // --- REGLAS DE RRHH ---
     aplicarCorteSalida: true, 
     horaCorteMax: 20,
-    minutoCorteMax: 0
+    minutoCorteMax: 0,
+    topeHsDiario: 6
   };
 
   const state = {
@@ -432,7 +432,6 @@
 
         let horaSalidaComputable = r.hora;
 
-        // APLICAR CORTE DE SALIDA (RRHH)
         if (SETTINGS.aplicarCorteSalida) {
           const corteMaximo = new Date(fecha);
           corteMaximo.setHours(SETTINGS.horaCorteMax, SETTINGS.minutoCorteMax, 0, 0);
@@ -457,7 +456,6 @@
     const totalBruto = sessions.reduce((acc, s) => acc + s.horas, 0);
     const lunchHours = isSunday(fecha) || isHoliday(fecha) ? 0 : (totalBruto >= SETTINGS.minHoursToDiscountLunch ? SETTINGS.weekdayLunchHours : 0);
     const totalNeto = Math.max(0, totalBruto - lunchHours);
-    const decimal = roundDownHalf(totalNeto);
 
     return {
       rawCount: records.length,
@@ -467,9 +465,22 @@
       primeraEntrada: sessions[0]?.entrada || cleaned.find(x => x.tipo === 'IN')?.hora || null,
       ultimaSalida: sessions[sessions.length - 1]?.salida || [...cleaned].reverse().find(x => x.tipo === 'OUT')?.hora || null,
       totalBruto: sessions.length ? totalBruto : null,
-      totalNeto: sessions.length ? totalNeto : null,
-      decimal: sessions.length ? decimal : null
+      totalNeto: sessions.length ? totalNeto : null
     };
+  }
+
+  // --- LÓGICA CORE DE HORAS EXTRAS Y TARDANZAS ---
+  function calcularHorasConTolerancia(minutosTotales) {
+    const horasEnteras = Math.floor(minutosTotales / 60);
+    const minutosSueltos = minutosTotales % 60;
+    
+    let hsToleradas = horasEnteras;
+    if (minutosSueltos >= 51) {
+      hsToleradas += 1.0;
+    } else if (minutosSueltos >= 45) {
+      hsToleradas += 0.5;
+    }
+    return hsToleradas;
   }
 
   function calcWorkedHoursFromAnalysis(analysis, fecha) {
@@ -477,41 +488,68 @@
       return { brutas: null, netas: null, decimal: null, jornal: 0, hs: 0, dominical: 0 };
     }
 
-    const brutas = analysis.totalBruto;
-    const netas = analysis.totalNeto;
-    const decimal = analysis.decimal;
+    const isDomingoFeriado = isSunday(fecha) || isHoliday(fecha);
 
     // LÓGICA DE DOMINGOS Y FERIADOS
-    if (isSunday(fecha) || isHoliday(fecha)) {
-      let hsFeriado = decimal;
-      if (SETTINGS.truncarHorasExtras) hsFeriado = Math.floor(hsFeriado);
-      return { brutas, netas, decimal, jornal: 0, hs: 0, dominical: hsFeriado };
+    if (isDomingoFeriado) {
+      const netMinutes = Math.round(analysis.totalNeto * 60);
+      let hsDomingo = calcularHorasConTolerancia(netMinutes);
+      return { brutas: analysis.totalBruto, netas: analysis.totalNeto, decimal: analysis.totalNeto, jornal: 0, hs: 0, dominical: hsDomingo };
     }
 
-    let jornal = Math.min(8, decimal);
-    let hsBruto = decimal - jornal;
-    let hsFinal = hsBruto;
+    // LÓGICA DE DÍAS NORMALES: SEPARAMOS LA JORNADA EN DOS BLOQUES
+    const horaEntradaOficial = new Date(fecha);
+    horaEntradaOficial.setHours(7, 0, 0, 0);
+    const horaSalidaOficial = new Date(fecha);
+    horaSalidaOficial.setHours(16, 0, 0, 0);
 
-    // APLICAR REGLAS RRHH PARA HORAS EXTRAS
-    if (SETTINGS.truncarHorasExtras) hsFinal = Math.floor(hsFinal);
-    if (hsFinal < SETTINGS.minimoHsPagables) hsFinal = 0;
-    if (hsFinal > SETTINGS.topeHsDiario) hsFinal = SETTINGS.topeHsDiario;
+    let minInWindow = 0; // Tiempo entre 07:00 y 16:00
+    let minOutWindow = 0; // Tiempo a partir de las 16:00
 
-    if (SETTINGS.applyLatePenalty && analysis.primeraEntrada) {
-      const horaBase = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate(), SETTINGS.baseStartHour, 0, 0, 0);
-      const tardanzaMin = Math.max(0, Math.round((analysis.primeraEntrada - horaBase) / 60000));
-      const bloquesTardanza = tardanzaMin <= 0 ? 0 : Math.ceil(tardanzaMin / 30);
-      const topeJornal = Math.max(0, 8 - (bloquesTardanza * 0.5));
-      
-      jornal = Math.min(topeJornal, decimal);
-      hsBruto = decimal - jornal;
-      hsFinal = SETTINGS.truncarHorasExtras ? Math.floor(hsBruto) : roundDownHalf(hsBruto);
-      
-      if (hsFinal < SETTINGS.minimoHsPagables) hsFinal = 0;
+    analysis.sessions.forEach(s => {
+      // Bloque del Jornal normal (07:00 - 16:00)
+      let inStart = Math.max(s.entrada.getTime(), horaEntradaOficial.getTime());
+      let inEnd = Math.min(s.salida.getTime(), horaSalidaOficial.getTime());
+      if (inEnd > inStart) minInWindow += (inEnd - inStart) / 60000;
+
+      // Bloque de Horas Extras (> 16:00)
+      let outStart = Math.max(s.entrada.getTime(), horaSalidaOficial.getTime());
+      let outEnd = s.salida.getTime();
+      if (outEnd > outStart) minOutWindow += (outEnd - outStart) / 60000;
+    });
+
+    // Descontar la hora de almuerzo de la ventana principal si trabajó el turno
+    if (minInWindow >= 240) {
+      minInWindow -= 60;
+      if (minInWindow < 0) minInWindow = 0;
+    }
+
+    // CÁLCULO DE JORNAL CON DESCUENTO POR TARDANZA A PARTIR DE 07:16
+    // El turno normal de 07:00 a 16:00 son 8 horas (480 min) sin refrigerio
+    let jornalFinal = 0;
+    if (minInWindow >= 465) {
+      // Si llegó a las 7:15 (pierde 15 mins = quedan 465 min netos), le perdonamos y le damos 8 horas
+      jornalFinal = 8;
+    } else {
+      // Si llegó 7:16 o más (pierde 16+ mins = quedan <= 464 min netos), la función roundDownHalf baja a 7.5
+      jornalFinal = roundDownHalf(minInWindow / 60);
+    }
+
+    // CÁLCULO DE HORAS EXTRAS APLICANDO TOLERANCIA
+    let hsFinal = 0;
+    if (minOutWindow > 0) {
+      hsFinal = calcularHorasConTolerancia(minOutWindow);
       if (hsFinal > SETTINGS.topeHsDiario) hsFinal = SETTINGS.topeHsDiario;
     }
 
-    return { brutas, netas, decimal, jornal, hs: hsFinal, dominical: 0 };
+    return { 
+      brutas: analysis.totalBruto, 
+      netas: analysis.totalNeto, 
+      decimal: analysis.totalNeto, 
+      jornal: jornalFinal, 
+      hs: hsFinal, 
+      dominical: 0 
+    };
   }
 
   function buildSummary(cleanRows, startDate, endDate) {
@@ -536,15 +574,19 @@
       const calc = calcWorkedHoursFromAnalysis(analysis, g.fecha);
 
       let alerta = '';
-      if (!analysis.sessions.length && isWeekday(g.fecha) && !isHoliday(g.fecha)) {
-        alerta = 'X';
+      const sinMarcas = analysis.rawCount === 0;
+      const marcaIncompleta = analysis.rawCount > 0 && analysis.sessions.length === 0;
+
+      if (sinMarcas && isWeekday(g.fecha) && !isHoliday(g.fecha)) {
+        alerta = 'F'; // Falta
+      } else if (marcaIncompleta) {
+        alerta = 'I'; // Incompleto
       } else if (analysis.anomalies.length) {
-        alerta = 'REV';
+        alerta = 'REV'; // Revisión normal
       }
 
       return {
         workerKey: g.workerKey, idPersona: g.idPersona, nombre: g.nombre, fecha: g.fecha, grupo: g.grupo,
-        marcas: analysis.rawCount, marcasLimpias: analysis.cleanedCount, sesiones: analysis.sessions.length,
         primeraEntrada: analysis.primeraEntrada, ultimaSalida: analysis.ultimaSalida,
         horasBrutas: calc.brutas, horasNetas: calc.netas, horasDecimal: calc.decimal,
         jornal: calc.jornal, hs: calc.hs, dominical: calc.dominical,
@@ -575,7 +617,8 @@
         const rec = idx.get(`${w.workerKey}__${fmtDate(d)}`);
         const feriado = isHoliday(d);
         const sinMarcaSemana = !rec && isWeekday(d) && !feriado;
-        const alerta = rec?.alerta || (sinMarcaSemana ? 'X' : '');
+        
+        let alerta = rec?.alerta || (sinMarcaSemana ? 'F' : '');
         
         const jornal = rec?.jornal ?? 0;
         const hs = rec?.hs ?? 0;
@@ -585,7 +628,7 @@
 
         out.hNormal += jornal;
         out.hExtras += hs;
-        out.dominical += dominical; // Suma precisa del dominical incluyendo feriados
+        out.dominical += dominical;
       });
 
       return out;
@@ -635,11 +678,12 @@
 
   function renderAll() {
     renderTable(els.resumen,
-      ['Nombre','ID','Fecha','Día','Marcas','Limpias','Sesiones','Primera entrada','Última salida','Horas brutas','Horas netas','Horas decimal','Jornal','H.S.','Alerta','Detalle'],
+      // Columnas Limpias y eliminadas: 'Marcas','Limpias','Sesiones'
+      ['Nombre','ID','Fecha','Día','Primera entrada','Última salida','Horas brutas','Horas netas','Jornal','H.S.','Alerta','Detalle'],
       state.summaryRows.slice(0, 2000).map(r => [
-        r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha), r.marcas, r.marcasLimpias, r.sesiones,
+        r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha),
         r.primeraEntrada ? fmtTime(r.primeraEntrada) : '', r.ultimaSalida ? fmtTime(r.ultimaSalida) : '',
-        displayNum(r.horasBrutas), displayNum(r.horasNetas), displayNum(r.horasDecimal), displayNum(r.jornal), displayNum(r.hs), r.alerta, r.detalle
+        displayNum(r.horasBrutas), displayNum(r.horasNetas), displayNum(r.jornal), displayNum(r.hs), r.alerta, r.detalle
       ])
     );
 
@@ -651,9 +695,9 @@
     );
 
     renderTable(els.anomalias,
-      ['Nombre','ID','Fecha','Día','Alerta','Detalle','Marcas','Sesiones','Jornal','H.S.'],
+      ['Nombre','ID','Fecha','Día','Alerta','Detalle','Jornal','H.S.'],
       state.anomalyRows.slice(0, 3000).map(r => [
-        r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha), r.alerta, r.detalle, r.marcas, r.sesiones, displayNum(r.jornal), displayNum(r.hs)
+        r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha), r.alerta, r.detalle, displayNum(r.jornal), displayNum(r.hs)
       ])
     );
 
@@ -670,10 +714,19 @@
       dates.forEach((d, idx) => {
         const k = fmtDate(d);
         const v = r.dias[k] || { jornal: 0, hs: 0, feriado: false, alerta: '', detalle: '' };
-        const journalText = v.alerta === 'X' ? 'X' : displayNum(v.jornal);
-        const hsText = (v.alerta === 'X' || v.hs === 0) ? '' : displayNum(v.hs);
-        const cellClass = v.alerta ? 'alert-cell' : '';
-        const title = escapeHtml(v.detalle || (v.alerta === 'X' ? 'Sin marcas válidas' : ''));
+        
+        let journalText = displayNum(v.jornal);
+        if (v.alerta === 'F') journalText = 'F';
+        if (v.alerta === 'I') journalText = 'I';
+
+        const hsText = (v.alerta === 'F' || v.alerta === 'I' || v.hs === 0) ? '' : displayNum(v.hs);
+        
+        let cellClass = '';
+        if (v.alerta === 'F') cellClass = 'alerta-f';
+        else if (v.alerta === 'I') cellClass = 'alerta-i';
+        else if (v.alerta) cellClass = 'alert-cell';
+
+        const title = escapeHtml(v.detalle || (v.alerta === 'F' ? 'Sin marcaciones (Falta)' : (v.alerta === 'I' ? 'Marcación incompleta' : '')));
         html += `<td class="num ${idx === 0 ? 'day-start sub-day-start' : ''} ${cellClass}" title="${title}">${escapeHtml(journalText)}</td>`;
         html += `<td class="num ${cellClass}" title="${title}">${escapeHtml(hsText)}</td>`;
       });
@@ -706,8 +759,13 @@
       state.tareo.dates.forEach(d => {
         const k = fmtDate(d);
         const cell = r.dias[k] || { jornal: 0, hs: 0, alerta: '' };
-        row.push(cell.alerta === 'X' ? 0 : (cell.jornal ?? 0));
-        row.push(cell.alerta === 'X' ? 0 : (cell.hs ?? 0));
+        
+        if (cell.alerta === 'F') { row.push('F', ''); }
+        else if (cell.alerta === 'I') { row.push('I', ''); }
+        else {
+          row.push(cell.jornal ?? 0);
+          row.push(cell.hs ?? 0);
+        }
       });
       row.push(r.hNormal, r.hExtras, r.dominical);
       data.push(row);
@@ -741,19 +799,19 @@
     XLSX.utils.book_append_sheet(wb, wsTareo, 'TAREO');
 
     const resumenData = [
-      ['Nombre','ID','Fecha','Día','Marcas','Limpias','Sesiones','Primera entrada','Última salida','Horas brutas','Horas netas','Horas decimal','Jornal','H.S.','Alerta','Detalle'],
+      ['Nombre','ID','Fecha','Día','Primera entrada','Última salida','Horas brutas','Horas netas','Jornal','H.S.','Alerta','Detalle'],
       ...state.summaryRows.map(r => [
-        r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha), r.marcas, r.marcasLimpias, r.sesiones,
+        r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha),
         r.primeraEntrada ? fmtTime(r.primeraEntrada) : '', r.ultimaSalida ? fmtTime(r.ultimaSalida) : '',
-        r.horasBrutas ?? '', r.horasNetas ?? '', r.horasDecimal ?? '', r.jornal ?? '', r.hs ?? '', r.alerta, r.detalle
+        r.horasBrutas ?? '', r.horasNetas ?? '', r.jornal ?? '', r.hs ?? '', r.alerta, r.detalle
       ])
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumenData), 'RESUMEN');
 
     const anomaliasData = [
-      ['Nombre','ID','Fecha','Día','Alerta','Detalle','Marcas','Sesiones','Jornal','H.S.'],
+      ['Nombre','ID','Fecha','Día','Alerta','Detalle','Jornal','H.S.'],
       ...state.anomalyRows.map(r => [
-        r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha), r.alerta, r.detalle, r.marcas, r.sesiones, r.jornal ?? '', r.hs ?? ''
+        r.nombre, r.idPersona || '', fmtDate(r.fecha), weekdayName(r.fecha), r.alerta, r.detalle, r.jornal ?? '', r.hs ?? ''
       ])
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(anomaliasData), 'ANOMALIAS');
@@ -810,8 +868,8 @@
 
   function loadSample() {
     const rows = [
-      { 'ID de persona': '00000027', Nombre: 'Lamper Torres, Jose Ali', Hora: '07/04/2026 07:30', 'Estado de asistencia': 'Registro de entrada' },
-      { 'ID de persona': '00000027', Nombre: 'Lamper Torres, Jose Ali', Hora: '07/04/2026 16:00', 'Estado de asistencia': 'Registro de salida' }
+      { 'ID de persona': '00000027', Nombre: 'Lamper Torres, Jose Ali', Hora: '07/04/2026 07:16', 'Estado de asistencia': 'Registro de entrada' },
+      { 'ID de persona': '00000027', Nombre: 'Lamper Torres, Jose Ali', Hora: '07/04/2026 18:00', 'Estado de asistencia': 'Registro de salida' }
     ];
     state.fileName = 'tareo_tabla.xlsx';
     setFileName('Ejemplo cargado');
